@@ -40,6 +40,7 @@ print(cm)
 # plot_coupling_map()
 
 import matplotlib.pyplot as plt
+
 plot_error_map(dev)
 plt.show()
 plt.savefig("temp.pdf")
