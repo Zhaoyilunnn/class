@@ -1,0 +1,11 @@
+[project]
+name = "dqc-map"
+version = "0.1.0"
+dependencies = [
+    "qiskit==1.1.1",
+    "matplotlib==3.9.1",
+    "seaborn==0.13.2"
+]
+
+[tool.setuptools.packages.find]
+include = ["dqcmap"]
