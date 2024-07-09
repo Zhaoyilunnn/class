@@ -1,3 +1,4 @@
+import argparse
 import random
 
 from qiskit import QuantumCircuit, qasm2, qasm3, transpile
@@ -8,55 +9,71 @@ from qiskit.visualization import plot_coupling_map, plot_error_map
 
 from dqcmap import ControllerConf
 from dqcmap.evaluator import Eval
-from dqcmap.utils import get_cif_qubit_pairs
+from dqcmap.utils import get_cif_qubit_pairs, get_synthetic_dqc
 
-num_qubits = 10
-length = 20
-measure_qubits = [random.randint(0, num_qubits - 1) for _ in range(length)]
-apply_qubits = [random.randint(0, num_qubits - 1) for _ in range(length)]
-control_qubits = [random.randint(0, num_qubits - 1) for _ in range(length)]
-target_qubits = [random.randint(0, num_qubits - 1) for _ in range(length)]
 
-qc = QuantumCircuit(num_qubits, num_qubits)
-for i in range(length):
-    qc.measure(measure_qubits[i], measure_qubits[i])
-    qc.h(apply_qubits[i]).c_if(measure_qubits[i], measure_qubits[i])
-    if control_qubits[i] != target_qubits[i]:
-        qc.cx(control_qubits[i], target_qubits[i])
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n", default=10, help="Number of qubits")
+    parser.add_argument(
+        "--p",
+        default=0.5,
+        type=float,
+        help="Probability of generating conditional gates",
+    )
 
-# print(qasm2.dumps(qc))
-print(qasm3.dumps(qc))
-# print(qc.draw("text"))
-cif_pairs = get_cif_qubit_pairs(qc)
+    return parser.parse_args()
 
-dev = Fake127QPulseV1()
-qc = transpile(qc, backend=dev)
-# print(qasm2.dumps(qc))
-# print(qasm3.dumps(qc))
-# print(qc.draw("text"))
-layout = qc.layout
-# print(sorted(layout.initial_virtual_layout(filter_ancillas=True)._p2v.keys()))
-print(layout.initial_virtual_layout(filter_ancillas=True))
-# print(sorted(layout.final_virtual_layout(filter_ancillas=True)._p2v.keys()))
-print(layout.final_virtual_layout(filter_ancillas=True))
 
-sched = schedule(qc, backend=dev)
-print(f"duration: {sched.duration}")
+def main():
+    args = get_args()
+    num_qubits = args.n
+    depth = num_qubits
 
-conf = dev.configuration()
-cm = conf.coupling_map
-print(cm)
-# plot_coupling_map()
+    res = open("res.txt", "w")
+    res.write("gate_latency\tctrl_latency\tinner\tinter\ttotal_latency\n")
 
-import matplotlib.pyplot as plt
+    for _ in range(10):
+        qc = get_synthetic_dqc(num_qubits, depth, cond_ratio=args.p, use_qiskit=False)
 
-plot_error_map(dev)
-plt.show()
-plt.savefig("temp.pdf")
+        # print(qasm2.dumps(qc))
+        # print(qasm3.dumps(qc))
+        # print(qc.draw("text"))
+        cif_pairs = get_cif_qubit_pairs(qc)
 
-conf = ControllerConf(127, 10)
-evaluator = Eval(conf, cif_pairs)
-total_latency = evaluator(qc, dev)
-gate_latency = evaluator.gate_latency
-ctrl_latency = evaluator.ctrl_latency
-print(f"{gate_latency}\t{ctrl_latency}\t{total_latency}")
+        dev = Fake127QPulseV1()
+        qc = transpile(qc, backend=dev)
+        # print(qasm2.dumps(qc))
+        # print(qasm3.dumps(qc))
+        # print(qc.draw("text"))
+        layout = qc.layout
+        # print(sorted(layout.initial_virtual_layout(filter_ancillas=True)._p2v.keys()))
+        # print(layout.initial_virtual_layout(filter_ancillas=True))
+        # print(sorted(layout.final_virtual_layout(filter_ancillas=True)._p2v.keys()))
+        # print(layout.final_virtual_layout(filter_ancillas=True))
+
+        sched = schedule(qc, backend=dev)
+        # print(f"duration: {sched.duration}")
+
+        # import matplotlib.pyplot as plt
+
+        # plot_error_map(dev)
+        # plt.show()
+        # plt.savefig("temp.pdf")
+
+        conf = ControllerConf(127, 10)
+        evaluator = Eval(conf, cif_pairs)
+        total_latency = evaluator(qc, dev)
+        gate_latency = evaluator.gate_latency
+        ctrl_latency = evaluator.ctrl_latency
+        inner = evaluator.inner_latency
+        inter = evaluator.inter_latency
+        res.write(
+            f"{gate_latency}\t{ctrl_latency}\t{inner}\t{inter}\t{total_latency}\n"
+        )
+
+    res.close()
+
+
+if __name__ == "__main__":
+    main()

@@ -12,12 +12,21 @@ from .utils import get_backend_dt
 
 
 class Eval:
-    """Estimate the final pulse duration time after transpilation"""
+    """Estimate the final pulse duration time after transpilation
+
+    Example:
+        The quantum circuit `qc` should be transpiled::
+
+            conf = ControllerConf(127, 10)
+            evaluator = Eval(conf, cif_pairs)
+            # dev is the backend
+            total_latency = evaluator(qc, dev)
+    """
 
     def __init__(self, ctrl_conf: ControllerConf, cif_pairs: List[List[Qubit]]):
         """
         Args:
-            ctrl_conf: Configuration of controller specifying qubit sets that are controlled by the same controller
+            ctrl_conf: Configuration of controllers
             cif_pairs: Pairs of qubits, where the first is conditioned on the second
         """
         self._layout = None
@@ -25,6 +34,8 @@ class Eval:
         self._cif_pairs = cif_pairs
         self._orig_latency = None
         self._ctrl_latency = None
+        self._inner_ctrl_latency = None
+        self._inter_ctrl_latency = None
 
     @property
     def gate_latency(self):
@@ -41,6 +52,22 @@ class Eval:
                 "Please first run the evaluation before getting the value of feedback-control latency"
             )
         return self._ctrl_latency
+
+    @property
+    def inner_latency(self):
+        if not self._inner_ctrl_latency:
+            raise ValueError(
+                "Please first run the evaluation before getting the value of inner feedback-control latency"
+            )
+        return self._inner_ctrl_latency
+
+    @property
+    def inter_latency(self):
+        if not self._inter_ctrl_latency:
+            raise ValueError(
+                "Please first run the evaluation before getting the value of inter feedback-control latency"
+            )
+        return self._inter_ctrl_latency
 
     def __call__(self, qc: QuantumCircuit, backend: Backend):
         """Evaluate the runtime of given quantum circuit"""
@@ -106,6 +133,8 @@ class Eval:
         """
 
         ctrl_latency = 0
+        inner_latency = 0
+        inter_latency = 0
 
         ctrl_mapping = self._conf.mapping
         dt_inner = self._conf.dt_inner
@@ -116,8 +145,14 @@ class Eval:
             ctrl_pq = pair[1]
             assert targ_pq in ctrl_mapping and ctrl_pq in ctrl_mapping
             if ctrl_mapping[targ_pq] == ctrl_mapping[ctrl_pq]:
+                # the qubits are controlled by the same controller
                 ctrl_latency += dt_inner
+                inner_latency += dt_inner
             else:
+                # the qubits are controlled by different controller
                 ctrl_latency += dt_inter
+                inter_latency += dt_inter
 
+        self._inner_ctrl_latency = inner_latency
+        self._inter_ctrl_latency = inter_latency
         return ctrl_latency
