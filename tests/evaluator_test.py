@@ -1,0 +1,36 @@
+from math import isclose
+
+from qiskit import QuantumCircuit, transpile
+from qiskit.providers.fake_provider import Fake127QPulseV1
+
+from dqcmap.controller import ControllerConf
+from dqcmap.evaluator import Eval
+from dqcmap.utils import get_cif_qubit_pairs
+
+
+class TestEval:
+    qc = QuantumCircuit(2, 2)
+    qc.h(0)
+    qc.measure(0, 0)
+    qc.cx(0, 1).c_if(0, 1)
+    cif_pairs = get_cif_qubit_pairs(qc)
+
+    dev = Fake127QPulseV1()
+    tqc = transpile(qc, dev)
+
+    conf = ControllerConf(127, 10)
+
+    def test_get_conf_pairs(self):
+        e = Eval(TestEval.conf, TestEval.cif_pairs)
+        pairs = e.get_phy_cond_pairs(TestEval.tqc, TestEval.dev)
+
+        assert pairs == [[0, 0], [1, 0]]
+
+    def test_calc_latency(self):
+        e = Eval(TestEval.conf, TestEval.cif_pairs)
+        print(TestEval.conf.mapping)
+        pairs = [[1, 0], [3, 15]]
+
+        t = e.calc_ctrl_latency(pairs)
+
+        assert isclose(t, 5.5e-7)

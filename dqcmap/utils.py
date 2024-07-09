@@ -2,6 +2,7 @@ import logging
 
 from qiskit import QuantumCircuit
 from qiskit.circuit import CircuitInstruction, Clbit, Qubit
+from qiskit.providers import Backend, BackendV1, BackendV2
 
 
 def get_cif_qubit_pairs(qc: QuantumCircuit):
@@ -24,6 +25,7 @@ def get_cif_qubit_pairs(qc: QuantumCircuit):
     measure_map = {}
 
     # Result
+    #  here we use list[list[int]], because a qubit may be conditioned on another qubit for many times
     pairs = []
 
     logging.debug(f"{__name__}: Looking for cif in the quantum circuit")
@@ -49,3 +51,18 @@ def get_cif_qubit_pairs(qc: QuantumCircuit):
     logging.debug(f" ===> result pairs: {pairs}")
 
     return pairs
+
+
+def get_backend_dt(backend: Backend) -> float:
+    """Get the the dt from backend based on backend types"""
+
+    if isinstance(backend, BackendV1):
+        dt = backend.configuration().dt
+    elif isinstance(backend, BackendV2):
+        dt = backend.dt
+    else:
+        raise NotImplementedError(f"Unsupported backend {backend}")
+
+    # currently we assume dt is a float value
+    assert isinstance(dt, float)
+    return dt

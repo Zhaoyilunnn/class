@@ -1,4 +1,4 @@
-from dqcmap.controller import Controller
+from dqcmap.controller import Controller, ControllerConf
 
 COUPLING_MAP = [
     [0, 1],
@@ -292,3 +292,20 @@ class TestController:
     def test_gen_regions(self):
         c = Controller(COUPLING_MAP)
         c.gen_controller_regions(2)
+
+
+class TestControllerConf:
+    def test_mapping(self):
+        ctrl_conf = ControllerConf(10, 3)
+        assert ctrl_conf.mapping == {
+            0: 0,
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 1,
+            5: 1,
+            6: 1,
+            7: 2,
+            8: 2,
+            9: 2,
+        }
