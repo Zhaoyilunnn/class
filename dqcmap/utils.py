@@ -77,18 +77,26 @@ def get_synthetic_dqc(
     gate_set: Optional[Set[Any]] = None,
     cond_ratio: float = 0.5,
     use_qiskit: bool = True,
+    seed: int = 1900,
 ) -> QuantumCircuit:
-    """Generate a random dynamic quantum circuit based on specified configuration"""
+    """Generate a random dynamic quantum circuit based on specified configurations
+    Args:
+        num_qubits (int): number of qubits.
+        num_layers (int): number of layers
+        cond_ratio (float): probability of generating a conditional layer.
+        use_qiskit (bool): whether to use qiskit builtin ``random_circuit`` method.
+    """
 
     if use_qiskit:
         return random_circuit(
             num_qubits, depth=num_layers, max_operands=2, conditional=True
         )
 
+    random.seed(seed)
     qc = QuantumCircuit(num_qubits, num_qubits)
     n_layers = num_qubits if num_layers is None else num_layers
 
-    measure_qubits = [random.randint(0, num_qubits - 1) for _ in range(n_layers)]
+    measure_idxes = [random.randint(0, num_qubits - 1) for _ in range(n_layers)]
     apply_qubits = [random.randint(0, num_qubits - 1) for _ in range(n_layers)]
     control_qubits = [random.randint(0, num_qubits - 1) for _ in range(n_layers)]
     target_qubits = [random.randint(0, num_qubits - 1) for _ in range(n_layers)]
@@ -96,12 +104,14 @@ def get_synthetic_dqc(
     for q in range(num_qubits):
         qc.h(q)
 
+    # currently each layer only contains measure, h, and cx
     for l in range(n_layers):
         for _ in range(num_qubits):
             seed = random.random()
             if seed < cond_ratio:
-                qc.measure(measure_qubits[l], measure_qubits[l])
-                qc.h(apply_qubits[l]).c_if(measure_qubits[l], measure_qubits[l])
+                qc.measure(measure_idxes[l], measure_idxes[l])
+                cond_cbit = qc.clbits[measure_idxes[l]]
+                qc.h(apply_qubits[l]).c_if(cond_cbit, measure_idxes[l])
                 if control_qubits[l] != target_qubits[l]:
                     qc.cx(control_qubits[l], target_qubits[l])
 

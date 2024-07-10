@@ -39,7 +39,7 @@ class Eval:
 
     @property
     def gate_latency(self):
-        if not self._orig_latency:
+        if self._orig_latency is None:
             raise ValueError(
                 "Please first run the evaluation before getting the value of gate latency"
             )
@@ -47,7 +47,7 @@ class Eval:
 
     @property
     def ctrl_latency(self):
-        if not self._ctrl_latency:
+        if self._ctrl_latency is None:
             raise ValueError(
                 "Please first run the evaluation before getting the value of feedback-control latency"
             )
@@ -55,7 +55,7 @@ class Eval:
 
     @property
     def inner_latency(self):
-        if not self._inner_ctrl_latency:
+        if self._inner_ctrl_latency is None:
             raise ValueError(
                 "Please first run the evaluation before getting the value of inner feedback-control latency"
             )
@@ -63,7 +63,7 @@ class Eval:
 
     @property
     def inter_latency(self):
-        if not self._inter_ctrl_latency:
+        if self._inter_ctrl_latency is None:
             raise ValueError(
                 "Please first run the evaluation before getting the value of inter feedback-control latency"
             )
@@ -71,6 +71,8 @@ class Eval:
 
     def __call__(self, qc: QuantumCircuit, backend: Backend):
         """Evaluate the runtime of given quantum circuit"""
+
+        self._init_latency()
 
         # Get physical qubit pairs
         phy_pairs = self.get_phy_cond_pairs(qc, backend)
@@ -125,6 +127,12 @@ class Eval:
 
         dt = get_backend_dt(backend)
         return sched.duration * dt
+
+    def _init_latency(self):
+        self._ctrl_latency = 0
+        self._orig_latency = 0
+        self._inner_ctrl_latency = 0
+        self._inter_ctrl_latency = 0
 
     def calc_ctrl_latency(self, pairs: List[List[int]]):
         """Calculate the feedback control latency
