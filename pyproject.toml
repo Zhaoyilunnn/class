@@ -9,3 +9,6 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 include = ["dqcmap"]
+
+[project.entry-points."qiskit.transpiler.layout"]
+"dummy_layout" = "dqcmap.passes.dummy:DummyLayoutPlugin"

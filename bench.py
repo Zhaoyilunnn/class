@@ -37,7 +37,7 @@ def main():
         qc = get_synthetic_dqc(num_qubits, depth, cond_ratio=args.p, use_qiskit=False)
 
         # print(qasm2.dumps(qc))
-        # print(qasm3.dumps(qc))
+        print(qasm3.dumps(qc))
         # print(qc.draw("text"))
         cif_pairs = get_cif_qubit_pairs(qc)
 
