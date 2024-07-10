@@ -12,8 +12,10 @@ from qiskit.transpiler.passmanager import PassManager
 from qiskit.transpiler.preset_passmanagers import common
 from qiskit.transpiler.preset_passmanagers.plugin import PassManagerStagePlugin
 
+from .dm_layout import DqcMapLayout
 
-class DummyLayoutPlugin(PassManagerStagePlugin):
+
+class DqcMapLayoutPlugin(PassManagerStagePlugin):
     def pass_manager(self, pass_manager_config, optimization_level=None) -> PassManager:
         _given_layout = SetLayout(pass_manager_config.initial_layout)
 
@@ -41,7 +43,7 @@ class DummyLayoutPlugin(PassManagerStagePlugin):
                 and pass_manager_config.routing_method != "sabre",
             )
         elif optimization_level == 1:
-            layout_pass = SabreLayout(
+            layout_pass = DqcMapLayout(
                 coupling_map,
                 max_iterations=2,
                 seed=pass_manager_config.seed_transpiler,

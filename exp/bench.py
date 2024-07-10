@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import random
 import time
@@ -12,6 +13,10 @@ from qiskit.visualization import plot_coupling_map, plot_error_map
 from dqcmap import ControllerConf
 from dqcmap.evaluator import Eval
 from dqcmap.utils import get_cif_qubit_pairs, get_synthetic_dqc
+
+logger = logging.getLogger("dm_layout")
+logger.setLevel("DEBUG")
+logger.disabled = False
 
 
 def get_args():
@@ -43,64 +48,77 @@ def get_benchmark(
     return qc
 
 
-def main():
-    args = get_args()
-    num_qubits = args.n
-    depth = num_qubits
+def gen_qc(num_qc, num_qubits, depth, cond_ratio, use_qiskit):
+    qc_lst = []
 
-    timestamp = int(time.time())
-    res = open(f"{timestamp}_res.txt", "w")
-    res.write("gate_latency\tctrl_latency\tinner\tinter\ttotal_latency\n")
-
-    for idx in range(10):
+    for idx in range(num_qc):
         # https://github.com/Zhaoyilunnn/dqc-map/issues/3
         # due to the above issue, currently we do not rely on qasm files
         # instead, we generate circuits dynamically
         # reproducibility is guaranteed by setting fixed random seed
         # qc = get_benchmark(num_qubits, depth, args.p, False, idx)
-
         qc = get_synthetic_dqc(
-            num_qubits, depth, cond_ratio=args.p, use_qiskit=False, seed=1900 + idx
+            num_qubits,
+            depth,
+            cond_ratio=cond_ratio,
+            use_qiskit=use_qiskit,
+            seed=1900 + idx,
         )
+        qc_lst.append(qc)
+    return qc_lst
 
-        # print(qasm2.dumps(qc))
-        # print(qasm3.dumps(qc))
-        # print(qc.draw("text"))
-        cif_pairs = get_cif_qubit_pairs(qc)
 
-        dev = Fake127QPulseV1()
-        qc = transpile(qc, backend=dev, layout_method="dummy_layout")
-        # qc = transpile(qc, backend=dev)
-        # print(qasm2.dumps(qc))
-        # print(qasm3.dumps(qc))
-        # print(qc.draw("text"))
-        layout = qc.layout
-        # print(sorted(layout.initial_virtual_layout(filter_ancillas=True)._p2v.keys()))
-        # print(layout.initial_virtual_layout(filter_ancillas=True))
-        # print(sorted(layout.final_virtual_layout(filter_ancillas=True)._p2v.keys()))
-        # print(layout.final_virtual_layout(filter_ancillas=True))
+def main():
+    args = get_args()
+    num_qubits = args.n
+    depth = num_qubits
+    dev = Fake127QPulseV1()
+    qc_lst = gen_qc(1, num_qubits, depth, args.p, False)
 
-        sched = schedule(qc, backend=dev)
-        # print(f"duration: {sched.duration}")
+    # for layout_method in ["dqcmap", "sabre"]:
+    for layout_method in ["dqcmap"]:
+        timestamp = int(time.time())
+        res = open(f"{timestamp}_res.txt", "w")
+        res.write("gate_latency\tctrl_latency\tinner\tinter\ttotal_latency\n")
 
-        # import matplotlib.pyplot as plt
+        for qc in qc_lst:
+            # print(qasm2.dumps(qc))
+            # print(qasm3.dumps(qc))
+            # print(qc.draw("text"))
+            cif_pairs = get_cif_qubit_pairs(qc)
 
-        # plot_error_map(dev)
-        # plt.show()
-        # plt.savefig("temp.pdf")
+            tqc = transpile(qc, backend=dev, layout_method=layout_method)
+            # qc = transpile(qc, backend=dev)
+            # print(qasm2.dumps(qc))
+            # print(qasm3.dumps(qc))
+            # print(qc.draw("text"))
+            layout = tqc.layout
+            # print(sorted(layout.initial_virtual_layout(filter_ancillas=True)._p2v.keys()))
+            # print(layout.initial_virtual_layout(filter_ancillas=True))
+            # print(sorted(layout.final_virtual_layout(filter_ancillas=True)._p2v.keys()))
+            # print(layout.final_virtual_layout(filter_ancillas=True))
 
-        conf = ControllerConf(127, 10)
-        evaluator = Eval(conf, cif_pairs)
-        total_latency = evaluator(qc, dev)
-        gate_latency = evaluator.gate_latency
-        ctrl_latency = evaluator.ctrl_latency
-        inner = evaluator.inner_latency
-        inter = evaluator.inter_latency
-        res.write(
-            f"{gate_latency}\t{ctrl_latency}\t{inner}\t{inter}\t{total_latency}\n"
-        )
+            sched = schedule(tqc, backend=dev)
+            # print(f"duration: {sched.duration}")
 
-    res.close()
+            # import matplotlib.pyplot as plt
+
+            # plot_error_map(dev)
+            # plt.show()
+            # plt.savefig("temp.pdf")
+
+            conf = ControllerConf(127, 10)
+            evaluator = Eval(conf, cif_pairs)
+            total_latency = evaluator(tqc, dev)
+            gate_latency = evaluator.gate_latency
+            ctrl_latency = evaluator.ctrl_latency
+            inner = evaluator.inner_latency
+            inter = evaluator.inter_latency
+            res.write(
+                f"{gate_latency}\t{ctrl_latency}\t{inner}\t{inter}\t{total_latency}\n"
+            )
+
+        res.close()
 
 
 if __name__ == "__main__":
