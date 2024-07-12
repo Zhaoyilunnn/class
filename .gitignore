@@ -166,5 +166,7 @@ cython_debug/
 *.pdf
 *.txt
 
-# vscode
+# hidden
 .vscode
+.stderr
+.stdout

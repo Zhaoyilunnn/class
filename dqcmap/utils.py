@@ -1,11 +1,14 @@
 import logging
 import random
-from typing import Any, Optional, Set
+from typing import Any, List, Optional, Set
 
 from qiskit import QuantumCircuit
 from qiskit.circuit import CircuitInstruction, Clbit, Qubit
 from qiskit.circuit.random.utils import random_circuit
 from qiskit.providers import Backend, BackendV1, BackendV2
+from qiskit.transpiler import Layout
+
+logger = logging.getLogger(__name__)
 
 
 def get_cif_qubit_pairs(qc: QuantumCircuit):
@@ -31,7 +34,7 @@ def get_cif_qubit_pairs(qc: QuantumCircuit):
     #  here we use list[list[int]], because a qubit may be conditioned on another qubit for many times
     pairs = []
 
-    logging.debug(f"Looking for cif in the quantum circuit")
+    logger.debug(f"Looking for cif in the quantum circuit")
     for val in qc.data:
         if isinstance(val, CircuitInstruction):
             operation, qargs, cargs = val.operation, val.qubits, val.clbits
@@ -42,7 +45,7 @@ def get_cif_qubit_pairs(qc: QuantumCircuit):
             if hasattr(operation, "condition") and operation.condition is not None:
                 cond = operation.condition
 
-                logging.debug(f" ===> Condition: {cond}")
+                logger.debug(f" ===> Condition: {cond}")
                 assert len(cond) == 2
                 assert isinstance(cond[0], Clbit)
                 c = cond[0]
@@ -50,8 +53,8 @@ def get_cif_qubit_pairs(qc: QuantumCircuit):
                     pair = [q, measure_map[c]]
                     pairs.append(pair)
 
-    logging.debug(f" ===> measure_map: {measure_map}")
-    logging.debug(f" ===> result pairs: {pairs}")
+    logger.debug(f" ===> measure_map: {measure_map}")
+    logger.debug(f" ===> result pairs: {pairs}")
 
     return pairs
 
@@ -107,12 +110,33 @@ def get_synthetic_dqc(
     # currently each layer only contains measure, h, and cx
     for l in range(n_layers):
         for _ in range(num_qubits):
-            seed = random.random()
-            if seed < cond_ratio:
+            prob = random.random()
+            if prob < cond_ratio:
                 qc.measure(measure_idxes[l], measure_idxes[l])
                 cond_cbit = qc.clbits[measure_idxes[l]]
                 qc.h(apply_qubits[l]).c_if(cond_cbit, measure_idxes[l])
                 if control_qubits[l] != target_qubits[l]:
+                    logger.debug(
+                        f" ===> Adding cx between lq {control_qubits[l]} and {target_qubits[l]}"
+                    )
                     qc.cx(control_qubits[l], target_qubits[l])
 
     return qc
+
+
+def check_swap_needed(qc: QuantumCircuit, layout: Layout, cm: List[List[int]]) -> bool:
+    """
+    Args:
+        qc (QuantumCircuit): logical quantum circuit before transpilation.
+        layout (Layout): final layout after transpilation.
+        cm: Coupling map.
+    """
+    # FIXME: here we only check two-qubit gates
+    for val in qc.data:
+        if isinstance(val, CircuitInstruction):
+            operation, qargs, cargs = val.operation, val.qubits, val.clbits
+            if len(qargs) == 2:
+                pq0, pq1 = layout[qargs[0]], layout[qargs[1]]
+                if not [pq0, pq1] in cm:
+                    return True
+    return False

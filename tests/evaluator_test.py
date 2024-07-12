@@ -3,7 +3,7 @@ from math import isclose
 from qiskit import QuantumCircuit, transpile
 from qiskit.providers.fake_provider import Fake127QPulseV1
 
-from dqcmap.controller import ControllerConf
+from dqcmap.controller import ControllerConfig
 from dqcmap.evaluator import Eval
 from dqcmap.utils import get_cif_qubit_pairs
 
@@ -18,7 +18,7 @@ class TestEval:
     dev = Fake127QPulseV1()
     tqc = transpile(qc, dev)
 
-    conf = ControllerConf(127, 10)
+    conf = ControllerConfig(127, 10)
 
     def test_get_conf_pairs(self):
         e = Eval(TestEval.conf, TestEval.cif_pairs)

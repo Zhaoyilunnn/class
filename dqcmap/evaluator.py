@@ -7,7 +7,7 @@ from qiskit.compiler import schedule
 from qiskit.providers import Backend, BackendV1
 from qiskit.pulse import Schedule
 
-from .controller import ControllerConf
+from .controller import ControllerConfig
 from .utils import get_backend_dt
 
 
@@ -23,7 +23,7 @@ class Eval:
             total_latency = evaluator(qc, dev)
     """
 
-    def __init__(self, ctrl_conf: ControllerConf, cif_pairs: List[List[Qubit]]):
+    def __init__(self, ctrl_conf: ControllerConfig, cif_pairs: List[List[Qubit]]):
         """
         Args:
             ctrl_conf: Configuration of controllers

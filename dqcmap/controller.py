@@ -5,7 +5,7 @@ import numpy as np
 import rustworkx
 
 
-class ControllerConf:
+class ControllerConfig:
     def __init__(
         self,
         num_qubits: int,
