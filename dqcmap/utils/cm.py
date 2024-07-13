@@ -3,6 +3,7 @@
 from typing import List
 
 import rustworkx
+from qiskit import QuantumCircuit
 from qiskit.transpiler.coupling import CouplingMap
 
 
@@ -26,11 +27,12 @@ class CmHelper:
         return graph
 
     @staticmethod
-    def gen_trivial_connected_region(coupling_map: List[List[int]]):
+    def gen_trivial_connected_region(qc: QuantumCircuit, coupling_map: List[List[int]]):
         """
         Generate a randomized connected region of coupling map
         """
         cm = CouplingMap(couplinglist=coupling_map)
         cm.connected_components()
-        img = cm.draw()
-        img.save("test.png")
+        # img = cm.draw()
+        # img.save("test.png")
+        return list(range(qc.num_qubits))

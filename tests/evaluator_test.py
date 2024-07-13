@@ -20,11 +20,17 @@ class TestEval:
 
     conf = ControllerConfig(127, 10)
 
-    def test_get_conf_pairs(self):
+    def test_get_phy_cond_pairs_true(self):
         e = Eval(TestEval.conf, TestEval.cif_pairs)
         pairs = e.get_phy_cond_pairs(TestEval.tqc, TestEval.dev)
 
         assert pairs == [[0, 0], [1, 0]]
+
+    def test_get_phy_cond_pairs_false(self):
+        e = Eval(TestEval.conf)
+        pairs = e.get_phy_cond_pairs(TestEval.tqc, TestEval.dev)
+
+        assert pairs is None
 
     def test_calc_latency(self):
         e = Eval(TestEval.conf, TestEval.cif_pairs)

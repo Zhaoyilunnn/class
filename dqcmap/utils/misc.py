@@ -99,27 +99,32 @@ def get_synthetic_dqc(
     qc = QuantumCircuit(num_qubits, num_qubits)
     n_layers = num_qubits if num_layers is None else num_layers
 
-    measure_idxes = [random.randint(0, num_qubits - 1) for _ in range(n_layers)]
-    apply_qubits = [random.randint(0, num_qubits - 1) for _ in range(n_layers)]
-    control_qubits = [random.randint(0, num_qubits - 1) for _ in range(n_layers)]
-    target_qubits = [random.randint(0, num_qubits - 1) for _ in range(n_layers)]
+    def _gen_rand_indexes():
+        return [
+            [random.randint(0, num_qubits - 1) for _ in range(num_qubits)]
+            for _ in range(n_layers)
+        ]
+
+    measure_idxes, apply_qubits, control_qubits, target_qubits = [
+        _gen_rand_indexes() for _ in range(4)
+    ]
 
     for q in range(num_qubits):
         qc.h(q)
 
     # currently each layer only contains measure, h, and cx
     for l in range(n_layers):
-        for _ in range(num_qubits):
+        for n in range(num_qubits):
             prob = random.random()
             if prob < cond_ratio:
-                qc.measure(measure_idxes[l], measure_idxes[l])
-                cond_cbit = qc.clbits[measure_idxes[l]]
-                qc.h(apply_qubits[l]).c_if(cond_cbit, measure_idxes[l])
-                if control_qubits[l] != target_qubits[l]:
+                qc.measure(measure_idxes[l][n], measure_idxes[l][n])
+                cond_cbit = qc.clbits[measure_idxes[l][n]]
+                qc.h(apply_qubits[l][n]).c_if(cond_cbit, measure_idxes[l][n])
+                if control_qubits[l][n] != target_qubits[l][n]:
                     logger.debug(
                         f" ===> Adding cx between lq {control_qubits[l]} and {target_qubits[l]}"
                     )
-                    qc.cx(control_qubits[l], target_qubits[l])
+                    qc.cx(control_qubits[l][n], target_qubits[l][n])
 
     return qc
 

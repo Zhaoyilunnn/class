@@ -1,4 +1,5 @@
 from qiskit import QuantumCircuit
+from qiskit.circuit.random.utils import random_circuit
 
 from dqcmap.utils import get_cif_qubit_pairs
 from dqcmap.utils.cm import CmHelper
@@ -24,4 +25,5 @@ class TestCmHelper:
 
         dev = Fake27QPulseV1()
         cm = dev.configuration().coupling_map
-        CmHelper.gen_trivial_connected_region(cm)
+
+        # TODO

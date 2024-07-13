@@ -1,12 +1,14 @@
 import logging
 import time
-from typing import Any, List
+from typing import Any, List, Optional
 
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import Qubit
 from qiskit.compiler import schedule
 from qiskit.providers import Backend, BackendV1
 from qiskit.pulse import Schedule
+
+from dqcmap.utils.misc import get_cif_qubit_pairs
 
 from .controller import ControllerConfig
 from .utils import get_backend_dt
@@ -26,7 +28,9 @@ class Eval:
             total_latency = evaluator(qc, dev)
     """
 
-    def __init__(self, ctrl_conf: ControllerConfig, cif_pairs: List[List[Qubit]]):
+    def __init__(
+        self, ctrl_conf: ControllerConfig, cif_pairs: Optional[List[List[Qubit]]] = None
+    ):
         """
         Args:
             ctrl_conf: Configuration of controllers
@@ -73,12 +77,18 @@ class Eval:
         return self._inter_ctrl_latency
 
     def __call__(self, qc: QuantumCircuit, backend: Backend):
-        """Evaluate the runtime of given quantum circuit"""
+        """Evaluate the runtime of given quantum circuit
+        Args:
+            qc (QuantumCircuit): The transpiled circuit.
+            backend (Backend): The target device model.
+        """
 
         self._init_latency()
 
         # Get physical qubit pairs
-        phy_pairs = self.get_phy_cond_pairs(qc, backend)
+        pairs = get_cif_qubit_pairs(qc)
+        # convert to integer value
+        pairs = [[q0._index, q1._index] for [q0, q1] in pairs]
 
         # Calculate the original latency
         calc_start = time.perf_counter()
@@ -90,7 +100,7 @@ class Eval:
 
         # Calculate feedback control latency
         calc_start = time.perf_counter()
-        self._ctrl_latency = self.calc_ctrl_latency(phy_pairs)
+        self._ctrl_latency = self.calc_ctrl_latency(pairs)
         calc_stop = time.perf_counter()
         logger.debug(
             f"Finished calculating control feedback latency in {calc_stop - calc_start} sec."
@@ -99,8 +109,11 @@ class Eval:
         # Return the sum of original latency and control latency
         return self._orig_latency + self._ctrl_latency
 
+    # TODO: delete this function, we should directly get condition pairs from physical qubits
     def get_phy_cond_pairs(self, qc: QuantumCircuit, backend: Backend):
         """Get the physical qubit pairs, where the first is conditioned on the second"""
+        if self._cif_pairs is None:
+            return None
         if qc.layout is None:
             raise ValueError(
                 "The quantum circuit should be transpiled and the layout property should not be None"
@@ -117,7 +130,7 @@ class Eval:
         # For each physical qubit id (pq)
         # 1. Find all its conditional physical qubit and check if they are controlled by the same controller
         # 2. Accumulate duration based on 1
-        logger.debug("Checking final layout")
+        logger.debug(f"Checking final layout:\n{final_layout}")
         for pq in range(qc.num_qubits):
             if pq in final_layout:
                 lq = final_layout[pq]  # logical qubit
