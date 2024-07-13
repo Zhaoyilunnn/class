@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any, List
 
 from qiskit import QuantumCircuit, transpile
@@ -9,6 +10,8 @@ from qiskit.pulse import Schedule
 
 from .controller import ControllerConfig
 from .utils import get_backend_dt
+
+logger = logging.getLogger(__name__)
 
 
 class Eval:
@@ -27,7 +30,7 @@ class Eval:
         """
         Args:
             ctrl_conf: Configuration of controllers
-            cif_pairs: Pairs of qubits, where the first is conditioned on the second
+            cif_pairs: Pairs of logical qubits, where the first is conditioned on the second
         """
         self._layout = None
         self._conf = ctrl_conf
@@ -78,10 +81,20 @@ class Eval:
         phy_pairs = self.get_phy_cond_pairs(qc, backend)
 
         # Calculate the original latency
+        calc_start = time.perf_counter()
         self._orig_latency = self.calc_orig_latency(qc, backend)
+        calc_stop = time.perf_counter()
+        logger.debug(
+            f"Finished calculating gate latency in {calc_stop - calc_start} sec."
+        )
 
         # Calculate feedback control latency
+        calc_start = time.perf_counter()
         self._ctrl_latency = self.calc_ctrl_latency(phy_pairs)
+        calc_stop = time.perf_counter()
+        logger.debug(
+            f"Finished calculating control feedback latency in {calc_stop - calc_start} sec."
+        )
 
         # Return the sum of original latency and control latency
         return self._orig_latency + self._ctrl_latency
@@ -104,17 +117,17 @@ class Eval:
         # For each physical qubit id (pq)
         # 1. Find all its conditional physical qubit and check if they are controlled by the same controller
         # 2. Accumulate duration based on 1
-        logging.debug("Checking final layout")
+        logger.debug("Checking final layout")
         for pq in range(qc.num_qubits):
             if pq in final_layout:
                 lq = final_layout[pq]  # logical qubit
-                logging.debug(f" ===> pq: {pq}, lq: {lq}")
+                logger.debug(f" ===> pq: {pq}, lq: {lq}")
                 for pair in self._cif_pairs:
                     if lq is pair[0]:
                         # Then get the corresponding physical qubit
                         cpq = final_layout[pair[1]]
-                        logging.debug(
-                            f" ==> Found a pq {pq} conditioned on lq: {pair[1]}, which maps to the pq: {cpq}"
+                        logger.debug(
+                            f" ===> Found a pq {pq} conditioned on lq: {pair[1]}, which maps to the pq: {cpq}"
                         )
                         pairs.append([pq, cpq])
 

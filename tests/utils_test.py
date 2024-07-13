@@ -1,6 +1,7 @@
 from qiskit import QuantumCircuit
 
 from dqcmap.utils import get_cif_qubit_pairs
+from dqcmap.utils.cm import CmHelper
 
 
 def test_get_cif_qubit_pairs():
@@ -15,3 +16,12 @@ def test_get_cif_qubit_pairs():
     assert pairs[1][0] is qc.qubits[1]
 
     print(qc.draw("text"))
+
+
+class TestCmHelper:
+    def test_gen_trivial_connected_region(self):
+        from qiskit.providers.fake_provider import Fake27QPulseV1
+
+        dev = Fake27QPulseV1()
+        cm = dev.configuration().coupling_map
+        CmHelper.gen_trivial_connected_region(cm)
