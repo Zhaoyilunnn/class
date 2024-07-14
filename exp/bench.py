@@ -13,32 +13,16 @@ from qiskit.providers.fake_provider.fake_qasm_backend import json
 from qiskit.visualization import plot_coupling_map, plot_error_map
 
 from dqcmap import ControllerConfig
-from dqcmap.compiler import DqcBaselineCompiler, DqcConnectedCompiler
+from dqcmap.compilers import QiskitDefaultCompiler, SingleCtrlCompiler
 from dqcmap.controller import MapStratety
 from dqcmap.evaluator import Eval
 from dqcmap.utils import check_swap_needed, get_cif_qubit_pairs, get_synthetic_dqc
 from dqcmap.utils.cm import CmHelper
 
-# Set up logging
-logger = logging.getLogger()
-logger.setLevel(
-    logging.DEBUG
-)  # Set the logger to the desired level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-
-# Create console handler and set level to debug
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-
-# Create formatter
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
-# Add formatter to ch
-ch.setFormatter(formatter)
-
-# Add ch to logger
-logger.addHandler(ch)
-
-# logger.disabled = True
+COMPILERS = {
+    "baseline": QiskitDefaultCompiler,
+    "single_ctrl": SingleCtrlCompiler,
+}
 
 
 def get_args():
@@ -60,8 +44,55 @@ def get_args():
         default="null",
         help="Methodology to set the initial layout",
     )
+    parser.add_argument(
+        "--log", type=int, default=0, help="Whether to output log for debugging."
+    )
+    parser.add_argument(
+        "--comp",
+        type=str,
+        default="baseline,single_ctrl",
+        help="Compiler method or a list of compiler methods splitted by `,`",
+    )
+    parser.add_argument("--ctrl", type=int, default=10, help="Number of controllers.")
 
     return parser.parse_args()
+
+
+ARGS = get_args()
+
+if ARGS.log:
+    # Set up logging
+    logger = logging.getLogger()
+    logger.setLevel(
+        logging.DEBUG
+    )  # Set the logger to the desired level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+    # Create console handler and set level to debug
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    # Create formatter
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+    # Add formatter to ch
+    ch.setFormatter(formatter)
+
+    # Add ch to logger
+    logger.addHandler(ch)
+
+    # logger.disabled = True
+else:
+    logger = logging.getLogger(__name__)
+
+
+def debug_qc(qc: QuantumCircuit):
+    # print(qasm2.dumps(qc))
+    logger.debug(f"Quantum Circuit::")
+    logger.debug(
+        f" ===> OpenQASM3::\n{qasm3.dumps(qc)}\n ===> Circuit::\n{qc.draw('text')}"
+    )
 
 
 def get_benchmark(
@@ -80,6 +111,7 @@ def get_benchmark(
     return qc
 
 
+# TODO: delete this function
 def get_init_layout(init_layout_type: str, qc: QuantumCircuit, cm: List[List[int]]):
     """Generate intial layout based on specified type
     Args:
@@ -133,69 +165,56 @@ def parse_num_qubits(args_qubits: str | int):
             )
 
 
+def parse_compiler_methods(args_comp: str):
+    comp_lst = args_comp.split(",")
+    for comp in comp_lst:
+        if not comp in COMPILERS:
+            raise ValueError(f"Supported compiler methods are {COMPILERS.keys()}")
+    return comp_lst
+
+
 def main():
-    args = get_args()
-    nq_lst = parse_num_qubits(args.n)  # list of `num_qubits`
-    num_circuits = args.c
-    seed = args.seed
-    name = args.init_layout_type
+    nq_lst = parse_num_qubits(ARGS.n)  # list of `num_qubits`
+    num_circuits = ARGS.c
+    seed = ARGS.seed
+    name = ARGS.init_layout_type
+    num_ctrls = ARGS.ctrl
     dev = Fake127QPulseV1()
-    # print(dev.configuration().coupling_map)
     cm = dev.configuration().coupling_map
 
     percent_inter_res_dict = {}
     runtime_res_dict = {}
     num_op_res_dict = {}
-    # for layout_method in ["dqcmap", "sabre"]:
 
-    # Create evaluator
-    conf = ControllerConfig(127, 10, strategy=MapStratety.CONNECT, cm=cm)
+    # Create controller configuration and evaluator
+    conf = ControllerConfig(
+        dev.configuration().n_qubits, num_ctrls, strategy=MapStratety.CONNECT, cm=cm
+    )
     evaluator = Eval(conf)
 
-    init_layout_methods = ["null", "connected"]
-    # init_layout_methods = ["connected"]
+    compiler_name_lst = parse_compiler_methods(ARGS.comp)
 
     # print result table header
     print("num_qubits\tinit_layout\tpercent_inter\truntime\tnum_op")
 
     for n in nq_lst:
-        qc_lst = gen_qc(num_circuits, n, n, args.p, False, seed_base=seed)
+        qc_lst = gen_qc(num_circuits, n, n, ARGS.p, False, seed_base=seed)
         for qc in qc_lst:
+            debug_qc(qc)
+
             for layout_method in ["dqcmap"]:
-                for name in init_layout_methods:  # name of initial layout methodology
+                for name in compiler_name_lst:  # name of initial layout methodology
                     percent_inter_res_dict.setdefault(name, [])
                     runtime_res_dict.setdefault(name, [])
                     num_op_res_dict.setdefault(name, [])
-                    init_layout = get_init_layout(name, qc, cm)
-                    # print(qasm2.dumps(qc))
-                    # print(qasm3.dumps(qc))
-                    # print(qc.draw("text"))
 
-                    if name == "null":
-                        compiler = DqcBaselineCompiler()
-                    elif name == "connected":
-                        compiler = DqcConnectedCompiler(conf)
-                    else:
-                        raise NotImplementedError(
-                            f"Unsupported initial layout method: {name}"
-                        )
+                    compiler = COMPILERS[name](conf)
+
                     tqc = compiler.run(qc, backend=dev, seed_transpiler=seed)
-                    # tqc = transpile(qc, backend=dev, seed_transpiler=seed)
-                    # print(qasm2.dumps(qc))
-                    # print(qasm3.dumps(qc))
-                    # print(qc.draw("text"))
                     layout = tqc.layout
-                    # print(sorted(layout.initial_virtual_layout(filter_ancillas=True)._p2v.keys()))
-                    # print(layout.initial_virtual_layout(filter_ancillas=True))
-                    # print(sorted(layout.final_virtual_layout(filter_ancillas=True)._p2v.keys()))
-                    # print(layout.final_virtual_layout(filter_ancillas=True))
                     final_layout = layout.final_virtual_layout(filter_ancillas=True)
                     logger.debug(f"final layout: \n{final_layout}")
                     swap_needed = check_swap_needed(qc, final_layout, cm)
-                    # logger.debug(f"Final mapping needs inserting swap? {swap_needed}")
-
-                    sched = schedule(tqc, backend=dev)
-                    # print(f"duration: {sched.duration}")
 
                     total_latency = evaluator(tqc, dev)
                     gate_latency = evaluator.gate_latency
