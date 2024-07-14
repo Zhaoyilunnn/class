@@ -30,12 +30,12 @@ class TestCmHelper:
         qc = random_circuit(10, 10)
         CmHelper.gen_trivial_connected_region(qc, cm)
 
-    def test_gen_trivial_connected_regions(self):
+    def test_gen_random_connected_regions(self):
         dev = Fake27QPulseV1()
         cm = dev.configuration().coupling_map
 
         # Get subgraph list
-        sg_lst, _ = CmHelper.gen_trivial_connected_regions(cm, 5, save_fig=True)
+        sg_lst, _ = CmHelper.gen_random_connected_regions(cm, 5, save_fig=True)
 
         for sg in sg_lst:
             assert rx.is_connected(sg)

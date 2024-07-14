@@ -170,7 +170,7 @@ class Eval:
         inner_latency = 0
         inter_latency = 0
 
-        ctrl_mapping = self._conf.mapping
+        ctrl_mapping = self._conf.pq_to_ctrl
         dt_inner = self._conf.dt_inner
         dt_inter = self._conf.dt_inter
 

@@ -34,7 +34,7 @@ class TestEval:
 
     def test_calc_latency(self):
         e = Eval(TestEval.conf, TestEval.cif_pairs)
-        print(TestEval.conf.mapping)
+        print(TestEval.conf.pq_to_ctrl)
         pairs = [[1, 0], [3, 15]]
 
         t = e.calc_ctrl_latency(pairs)

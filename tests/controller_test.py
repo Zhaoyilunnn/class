@@ -352,7 +352,7 @@ COUPLING_MAP_1 = [
 class TestControllerConf:
     def test_mapping_trivial(self):
         ctrl_conf = ControllerConfig(10, 3)
-        assert ctrl_conf.mapping == {
+        assert ctrl_conf.pq_to_ctrl == {
             0: 0,
             1: 0,
             2: 0,
@@ -369,8 +369,8 @@ class TestControllerConf:
         ctrl_conf = ControllerConfig(
             27, 6, strategy=MapStratety.CONNECT, cm=COUPLING_MAP_1
         )
-        print(ctrl_conf.mapping)
-        assert ctrl_conf.mapping == {
+        print(ctrl_conf.pq_to_ctrl)
+        assert ctrl_conf.pq_to_ctrl == {
             0: 0,
             1: 0,
             4: 0,

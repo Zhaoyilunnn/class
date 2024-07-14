@@ -13,14 +13,11 @@ from qiskit.providers.fake_provider.fake_qasm_backend import json
 from qiskit.visualization import plot_coupling_map, plot_error_map
 
 from dqcmap import ControllerConfig
+from dqcmap.compiler import DqcBaselineCompiler, DqcConnectedCompiler
+from dqcmap.controller import MapStratety
 from dqcmap.evaluator import Eval
 from dqcmap.utils import check_swap_needed, get_cif_qubit_pairs, get_synthetic_dqc
 from dqcmap.utils.cm import CmHelper
-
-# # logger = logging.getLogger("dqcmap.passes.dm_layout")
-# logger = logging.getLogger("qiskit.transpiler")
-# logger.setLevel("DEBUG")
-# logger.disabled = False
 
 # Set up logging
 logger = logging.getLogger()
@@ -40,6 +37,8 @@ ch.setFormatter(formatter)
 
 # Add ch to logger
 logger.addHandler(ch)
+
+# logger.disabled = True
 
 
 def get_args():
@@ -92,6 +91,11 @@ def get_init_layout(init_layout_type: str, qc: QuantumCircuit, cm: List[List[int
         return None
     if init_layout_type == "trivial":
         return CmHelper.gen_trivial_connected_region(qc, cm)
+    if init_layout_type == "connected":
+        _, regions = CmHelper.gen_random_connected_regions(cm, qc.num_qubits)
+        for r in regions:
+            if len(r) == qc.num_qubits:
+                return r
 
     raise NotImplementedError(f"Unsupported initial layout type: {init_layout_type}")
 
@@ -144,6 +148,13 @@ def main():
     num_op_res_dict = {}
     # for layout_method in ["dqcmap", "sabre"]:
 
+    # Create evaluator
+    conf = ControllerConfig(127, 10, strategy=MapStratety.CONNECT, cm=cm)
+    evaluator = Eval(conf)
+
+    init_layout_methods = ["null", "connected"]
+    # init_layout_methods = ["connected"]
+
     # print result table header
     print("num_qubits\tinit_layout\tpercent_inter\truntime\tnum_op")
 
@@ -151,7 +162,7 @@ def main():
         qc_lst = gen_qc(num_circuits, n, n, args.p, False, seed_base=seed)
         for qc in qc_lst:
             for layout_method in ["dqcmap"]:
-                for name in ["null", "trivial"]:  # name of initial layout methodology
+                for name in init_layout_methods:  # name of initial layout methodology
                     percent_inter_res_dict.setdefault(name, [])
                     runtime_res_dict.setdefault(name, [])
                     num_op_res_dict.setdefault(name, [])
@@ -160,13 +171,15 @@ def main():
                     # print(qasm3.dumps(qc))
                     # print(qc.draw("text"))
 
-                    tqc = transpile(
-                        qc,
-                        backend=dev,
-                        initial_layout=init_layout,
-                        layout_method=layout_method,
-                        seed_transpiler=seed,
-                    )
+                    if name == "null":
+                        compiler = DqcBaselineCompiler()
+                    elif name == "connected":
+                        compiler = DqcConnectedCompiler(conf)
+                    else:
+                        raise NotImplementedError(
+                            f"Unsupported initial layout method: {name}"
+                        )
+                    tqc = compiler.run(qc, backend=dev, seed_transpiler=seed)
                     # tqc = transpile(qc, backend=dev, seed_transpiler=seed)
                     # print(qasm2.dumps(qc))
                     # print(qasm3.dumps(qc))
@@ -177,14 +190,13 @@ def main():
                     # print(sorted(layout.final_virtual_layout(filter_ancillas=True)._p2v.keys()))
                     # print(layout.final_virtual_layout(filter_ancillas=True))
                     final_layout = layout.final_virtual_layout(filter_ancillas=True)
+                    logger.debug(f"final layout: \n{final_layout}")
                     swap_needed = check_swap_needed(qc, final_layout, cm)
-                    logger.debug(f"Final mapping needs inserting swap? {swap_needed}")
+                    # logger.debug(f"Final mapping needs inserting swap? {swap_needed}")
 
                     sched = schedule(tqc, backend=dev)
                     # print(f"duration: {sched.duration}")
 
-                    conf = ControllerConfig(127, 10)
-                    evaluator = Eval(conf)
                     total_latency = evaluator(tqc, dev)
                     gate_latency = evaluator.gate_latency
                     ctrl_latency = evaluator.ctrl_latency

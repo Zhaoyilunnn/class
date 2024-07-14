@@ -64,7 +64,7 @@ class CmHelper:
         return list(range(qc.num_qubits))
 
     @staticmethod
-    def gen_trivial_connected_regions(
+    def gen_random_connected_regions(
         coupling_map, region_size: int = 10, save_fig: bool = False
     ):
         """Generate connected regions with approximately equal size

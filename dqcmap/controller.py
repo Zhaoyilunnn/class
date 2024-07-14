@@ -50,18 +50,33 @@ class ControllerConfig:
         self._num_qubits = num_qubits
         self._num_controllers = num_controllers
         self._pq2c = {}  # mapping between physical qubits and controllers
+        self._c2pq = {}  # mapping between controller and physical qubits
         self._cm = cm
 
-    # TODO: impl of different mapping strategy
     @property
-    def mapping(self):
+    def num_qubits(self):
+        return self._num_qubits
+
+    @property
+    def num_controllers(self):
+        return self._num_controllers
+
+    @property
+    def pq_to_ctrl(self):
         """The mapping between physical qubit id and controller id"""
         if not self._pq2c:
-            self._pq2c = self._gen_mapping()
+            self._pq2c, self._c2pq = self._gen_mapping()
         return self._pq2c
 
+    @property
+    def ctrl_to_pq(self):
+        if not self._c2pq:
+            self._pq2c, self._c2pq = self._gen_mapping()
+        return self._c2pq
+
     def _gen_trivial_mapping(self):
-        pq2c = {}
+        """Directly partion the qubits into groups"""
+        pq2c, c2pq = {}, {}
         pq_lst = range(self._num_qubits)
         arr = np.array(pq_lst, dtype=int)
         split_lst = np.array_split(arr, self._num_controllers)
@@ -71,12 +86,14 @@ class ControllerConfig:
             )
             for pq in sub_lst:
                 pq2c[pq] = idx
-        return pq2c
+            c2pq[idx] = sub_lst
+        return pq2c, c2pq
 
     def _gen_connected_mapping(self):
-        pq2c = {}
+        """Find connected regions and try the best to allocate each controller with a connected qubit region"""
+        pq2c, c2pq = {}, {}
         region_size = int(np.ceil(self._num_qubits / self._num_controllers))
-        _, sg_nodes_lst = CmHelper.gen_trivial_connected_regions(
+        _, sg_nodes_lst = CmHelper.gen_random_connected_regions(
             self._cm, region_size=region_size
         )
 
@@ -88,6 +105,7 @@ class ControllerConfig:
             if len(sg) == region_size:
                 for pq in sg:
                     pq2c[pq] = ctrl_idx
+                c2pq[ctrl_idx] = sg
                 ctrl_idx += 1
             else:
                 remain_nodes_lst.extend(sg)
@@ -97,11 +115,19 @@ class ControllerConfig:
                 f"Merged an unconnected nodes: {remain_nodes_lst} list larger than region size: {region_size}"
             )
 
+        # For remained nodes, approximately equally allocate to remained controllers
+        num_remain_ctrls = self._num_controllers - ctrl_idx
+        assert num_remain_ctrls >= 0
         if remain_nodes_lst:
-            for pq in remain_nodes_lst:
-                pq2c[pq] = ctrl_idx
+            split_lst = np.array_split(
+                np.array(remain_nodes_lst, dtype=int), num_remain_ctrls
+            )
+            for idx, sub_lst in enumerate(split_lst):
+                for pq in sub_lst:
+                    pq2c[pq] = ctrl_idx + idx
+                c2pq[ctrl_idx + idx] = sub_lst
 
-        return pq2c
+        return pq2c, c2pq
 
     def _gen_mapping(self):
         if self._strategy == MapStratety.TRIVIAL:
