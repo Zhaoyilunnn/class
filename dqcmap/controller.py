@@ -7,6 +7,8 @@ import rustworkx
 
 from dqcmap.utils.cm import CmHelper
 
+logger = logging.getLogger(__name__)
+
 
 class MapStratety(Enum):
     """Enumeration of controller mapping strategy"""
@@ -39,7 +41,7 @@ class ControllerConfig:
         self._dt_inter = dt_inter if dt_inter is not None else 5e-7
         self._strategy = strategy
         if self._dt_inter < 5 * self._dt_inner:
-            logging.warning(
+            logger.warning(
                 f"Latency within the same controller is expected to be at least 5x shorter than the latency across different controllers"
             )
         assert (
@@ -64,7 +66,7 @@ class ControllerConfig:
         arr = np.array(pq_lst, dtype=int)
         split_lst = np.array_split(arr, self._num_controllers)
         for idx, sub_lst in enumerate(split_lst):
-            logging.debug(
+            logger.debug(
                 f"Controller: {idx}, connects {len(sub_lst)} physical qubits: {sub_lst.tolist()}"
             )
             for pq in sub_lst:
@@ -89,6 +91,11 @@ class ControllerConfig:
                 ctrl_idx += 1
             else:
                 remain_nodes_lst.extend(sg)
+
+        if len(remain_nodes_lst) > region_size:
+            logger.warning(
+                f"Merged an unconnected nodes: {remain_nodes_lst} list larger than region size: {region_size}"
+            )
 
         if remain_nodes_lst:
             for pq in remain_nodes_lst:
