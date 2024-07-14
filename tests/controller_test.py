@@ -1,6 +1,8 @@
-from dqcmap.controller import ControllerConfig
+from qiskit.providers.fake_provider import Fake27QPulseV1
 
-COUPLING_MAP = [
+from dqcmap.controller import ControllerConfig, MapStratety
+
+COUPLING_MAP_0 = [
     [0, 1],
     [0, 14],
     [1, 0],
@@ -287,9 +289,68 @@ COUPLING_MAP = [
     [126, 125],
 ]
 
+COUPLING_MAP_1 = [
+    [0, 1],
+    [1, 0],
+    [1, 2],
+    [1, 4],
+    [2, 1],
+    [2, 3],
+    [3, 2],
+    [3, 5],
+    [4, 1],
+    [4, 7],
+    [5, 3],
+    [5, 8],
+    [6, 7],
+    [7, 4],
+    [7, 6],
+    [7, 10],
+    [8, 5],
+    [8, 9],
+    [8, 11],
+    [9, 8],
+    [10, 7],
+    [10, 12],
+    [11, 8],
+    [11, 14],
+    [12, 10],
+    [12, 13],
+    [12, 15],
+    [13, 12],
+    [13, 14],
+    [14, 11],
+    [14, 13],
+    [14, 16],
+    [15, 12],
+    [15, 18],
+    [16, 14],
+    [16, 19],
+    [17, 18],
+    [18, 15],
+    [18, 17],
+    [18, 21],
+    [19, 16],
+    [19, 20],
+    [19, 22],
+    [20, 19],
+    [21, 18],
+    [21, 23],
+    [22, 19],
+    [22, 25],
+    [23, 21],
+    [23, 24],
+    [24, 23],
+    [24, 25],
+    [25, 22],
+    [25, 24],
+    [25, 26],
+    [26, 25],
+]
+
 
 class TestControllerConf:
-    def test_mapping(self):
+    def test_mapping_trivial(self):
         ctrl_conf = ControllerConfig(10, 3)
         assert ctrl_conf.mapping == {
             0: 0,
@@ -302,4 +363,39 @@ class TestControllerConf:
             7: 2,
             8: 2,
             9: 2,
+        }
+
+    def test_mapping_connect(self):
+        ctrl_conf = ControllerConfig(
+            27, 6, strategy=MapStratety.CONNECT, cm=COUPLING_MAP_1
+        )
+        print(ctrl_conf.mapping)
+        assert ctrl_conf.mapping == {
+            0: 0,
+            1: 0,
+            4: 0,
+            2: 0,
+            7: 0,
+            3: 1,
+            5: 1,
+            8: 1,
+            11: 1,
+            9: 1,
+            10: 2,
+            12: 2,
+            15: 2,
+            13: 2,
+            18: 2,
+            14: 3,
+            16: 3,
+            19: 3,
+            22: 3,
+            20: 3,
+            21: 4,
+            23: 4,
+            24: 4,
+            25: 4,
+            26: 4,
+            6: 5,
+            17: 5,
         }

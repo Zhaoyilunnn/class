@@ -1,8 +1,18 @@
 import logging
+from enum import Enum
 from typing import List, Optional
 
 import numpy as np
 import rustworkx
+
+from dqcmap.utils.cm import CmHelper
+
+
+class MapStratety(Enum):
+    """Enumeration of controller mapping strategy"""
+
+    TRIVIAL = 1
+    CONNECT = 2
 
 
 class ControllerConfig:
@@ -12,8 +22,19 @@ class ControllerConfig:
         num_controllers: int,
         dt_inner: Optional[float] = None,
         dt_inter: Optional[float] = None,
-        strategy: str = "simple",
+        strategy: MapStratety = MapStratety.TRIVIAL,
+        cm: Optional[List[List[int]]] = None,
     ):
+        """Initialzation of a controller Configuration
+
+        Args:
+            num_qubits: Number of qubits (total physical qubits in quantum device).
+            num_controllers: Number of controllers.
+            dt_inter: Control-feedback latency within the same controller.
+            dt_inter: Control-feedback latency across different controllers.
+            strategy: Name of strategy for generating mapping between controllers and qubits.
+            cm: Coupling map of the quantum device.
+        """
         self._dt_inner = dt_inner if dt_inner is not None else 5e-8
         self._dt_inter = dt_inter if dt_inter is not None else 5e-7
         self._strategy = strategy
@@ -27,6 +48,7 @@ class ControllerConfig:
         self._num_qubits = num_qubits
         self._num_controllers = num_controllers
         self._pq2c = {}  # mapping between physical qubits and controllers
+        self._cm = cm
 
     # TODO: impl of different mapping strategy
     @property
@@ -36,22 +58,51 @@ class ControllerConfig:
             self._pq2c = self._gen_mapping()
         return self._pq2c
 
-    def _gen_mapping(self):
+    def _gen_trivial_mapping(self):
         pq2c = {}
-        if self._strategy == "simple":
-            pq_lst = range(self._num_qubits)
-            arr = np.array(pq_lst, dtype=int)
-            split_lst = np.array_split(arr, self._num_controllers)
-            for idx, sub_lst in enumerate(split_lst):
-                logging.debug(
-                    f"Controller: {idx}, connects {len(sub_lst)} physical qubits: {sub_lst.tolist()}"
-                )
-                for pq in sub_lst:
-                    pq2c[pq] = idx
-        else:
-            raise NotImplementedError(f"Unsupported mapping strategy: {self._strategy}")
+        pq_lst = range(self._num_qubits)
+        arr = np.array(pq_lst, dtype=int)
+        split_lst = np.array_split(arr, self._num_controllers)
+        for idx, sub_lst in enumerate(split_lst):
+            logging.debug(
+                f"Controller: {idx}, connects {len(sub_lst)} physical qubits: {sub_lst.tolist()}"
+            )
+            for pq in sub_lst:
+                pq2c[pq] = idx
+        return pq2c
+
+    def _gen_connected_mapping(self):
+        pq2c = {}
+        region_size = int(np.ceil(self._num_qubits / self._num_controllers))
+        _, sg_nodes_lst = CmHelper.gen_trivial_connected_regions(
+            self._cm, region_size=region_size
+        )
+
+        # There may be some small subgraphs that're not connected
+        # merge them into remain_nodes_lst
+        remain_nodes_lst = []
+        ctrl_idx = 0
+        for sg in sg_nodes_lst:
+            if len(sg) == region_size:
+                for pq in sg:
+                    pq2c[pq] = ctrl_idx
+                ctrl_idx += 1
+            else:
+                remain_nodes_lst.extend(sg)
+
+        if remain_nodes_lst:
+            for pq in remain_nodes_lst:
+                pq2c[pq] = ctrl_idx
 
         return pq2c
+
+    def _gen_mapping(self):
+        if self._strategy == MapStratety.TRIVIAL:
+            return self._gen_trivial_mapping()
+        if self._strategy == MapStratety.CONNECT:
+            return self._gen_connected_mapping()
+
+        raise NotImplementedError(f"Unsupported mapping strategy: {self._strategy}")
 
     @property
     def dt_inner(self):

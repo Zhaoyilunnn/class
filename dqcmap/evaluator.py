@@ -1,11 +1,11 @@
 import logging
 import time
-from typing import Any, List, Optional
+from typing import List, Optional
 
-from qiskit import QuantumCircuit, transpile
+from qiskit import QuantumCircuit
 from qiskit.circuit import Qubit
 from qiskit.compiler import schedule
-from qiskit.providers import Backend, BackendV1
+from qiskit.providers import Backend
 from qiskit.pulse import Schedule
 
 from dqcmap.utils.misc import get_cif_qubit_pairs

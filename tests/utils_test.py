@@ -1,5 +1,7 @@
+import rustworkx as rx
 from qiskit import QuantumCircuit
 from qiskit.circuit.random.utils import random_circuit
+from qiskit.providers.fake_provider import Fake27QPulseV1
 
 from dqcmap.utils import get_cif_qubit_pairs
 from dqcmap.utils.cm import CmHelper
@@ -21,9 +23,19 @@ def test_get_cif_qubit_pairs():
 
 class TestCmHelper:
     def test_gen_trivial_connected_region(self):
-        from qiskit.providers.fake_provider import Fake27QPulseV1
-
         dev = Fake27QPulseV1()
         cm = dev.configuration().coupling_map
 
         # TODO
+        qc = random_circuit(10, 10)
+        CmHelper.gen_trivial_connected_region(qc, cm)
+
+    def test_gen_trivial_connected_regions(self):
+        dev = Fake27QPulseV1()
+        cm = dev.configuration().coupling_map
+
+        # Get subgraph list
+        sg_lst, _ = CmHelper.gen_trivial_connected_regions(cm, 5, save_fig=True)
+
+        for sg in sg_lst:
+            assert rx.is_connected(sg)

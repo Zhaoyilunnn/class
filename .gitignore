@@ -165,8 +165,13 @@ cython_debug/
 # docs
 *.pdf
 *.txt
+*.png
+*.svg
 
 # hidden
 .vscode
 .stderr
 .stdout
+
+# temp
+temp.*
