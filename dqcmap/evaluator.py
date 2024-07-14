@@ -109,7 +109,7 @@ class Eval:
         # Return the sum of original latency and control latency
         return self._orig_latency + self._ctrl_latency
 
-    # TODO: delete this function, we should directly get condition pairs from physical qubits
+    # FIXME: delete this function, we should directly get condition pairs from physical qubits
     def get_phy_cond_pairs(self, qc: QuantumCircuit, backend: Backend):
         """Get the physical qubit pairs, where the first is conditioned on the second"""
         if self._cif_pairs is None:

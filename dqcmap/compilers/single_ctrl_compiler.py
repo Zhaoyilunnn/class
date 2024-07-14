@@ -10,7 +10,7 @@ from dqcmap.controller import ControllerConfig
 class SingleCtrlCompiler(BaseCompiler):
     """
     Just an experimental compiler, it only works for compiling qc
-    with num_qubits <= a controller connected region.
+    with num_qubits smaller or equal to a controller connected region.
 
     It will use a permutated layout within a region connected by the
     same controller as the initial layout.

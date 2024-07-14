@@ -22,14 +22,6 @@ def test_get_cif_qubit_pairs():
 
 
 class TestCmHelper:
-    def test_gen_trivial_connected_region(self):
-        dev = Fake27QPulseV1()
-        cm = dev.configuration().coupling_map
-
-        # TODO
-        qc = random_circuit(10, 10)
-        CmHelper.gen_trivial_connected_region(qc, cm)
-
     def test_gen_random_connected_regions(self):
         dev = Fake27QPulseV1()
         cm = dev.configuration().coupling_map

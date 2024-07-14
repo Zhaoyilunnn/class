@@ -111,7 +111,7 @@ def get_benchmark(
     return qc
 
 
-# TODO: delete this function
+# FIXME: delete this function
 def get_init_layout(init_layout_type: str, qc: QuantumCircuit, cm: List[List[int]]):
     """Generate intial layout based on specified type
     Args:
