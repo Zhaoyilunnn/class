@@ -11,8 +11,7 @@
 # that they have been altered from the originals.
 
 """
-This layout is modified from qiskit.transpiler.passes.layout.sabre_layout
-When deciding the initial layout, controller architecture is taken into account
+Modified by dqcmap
 """
 import copy
 import dataclasses
@@ -22,9 +21,9 @@ import time
 
 import numpy as np
 import rustworkx as rx
-from qiskit._accelerate.nlayout import NLayout
-from qiskit._accelerate.sabre import Heuristic, NeighborTable, sabre_layout_and_routing
-from qiskit.circuit import QuantumRegister
+from qiskit import ClassicalRegister
+from qiskit.circuit import Clbit, ControlFlowOp, QuantumRegister, SwitchCaseOp
+from qiskit.circuit.controlflow import condition_resources, node_resources
 from qiskit.converters import dag_to_circuit
 from qiskit.dagcircuit import DAGCircuit
 from qiskit.transpiler.basepasses import TransformationPass
@@ -38,15 +37,77 @@ from qiskit.transpiler.passes.layout.full_ancilla_allocation import (
     FullAncillaAllocation,
 )
 from qiskit.transpiler.passes.layout.set_layout import SetLayout
-from qiskit.transpiler.passes.routing.sabre_swap import (
-    _apply_sabre_result,
-    _build_sabre_dag,
-)
+from qiskit.transpiler.passes.routing.sabre_swap import _apply_sabre_result
 from qiskit.transpiler.passmanager import PassManager
 from qiskit.transpiler.target import Target
 from qiskit.utils.parallel import CPU_COUNT
 
+from dqcmap._accelerate.nlayout import NLayout
+from dqcmap._accelerate.sabre import (
+    Heuristic,
+    NeighborTable,
+    SabreDAG,
+    sabre_layout_and_routing,
+)
+
 logger = logging.getLogger(__name__)
+
+
+def _build_sabre_dag(dag, num_physical_qubits, qubit_indices):
+    from qiskit.converters import circuit_to_dag
+
+    # Maps id(block): circuit_to_dag(block) for all descendant blocks
+    circuit_to_dag_dict = {}
+
+    def recurse(block, block_qubit_indices):
+        block_id = id(block)
+        if block_id in circuit_to_dag_dict:
+            block_dag = circuit_to_dag_dict[block_id]
+        else:
+            block_dag = circuit_to_dag(block)
+            circuit_to_dag_dict[block_id] = block_dag
+        return process_dag(block_dag, block_qubit_indices)
+
+    def process_dag(block_dag, wire_map):
+        dag_list = []
+        node_blocks = {}
+        for node in block_dag.topological_op_nodes():
+            cargs_bits = set(node.cargs)
+            if node.op.condition is not None:
+                cargs_bits.update(condition_resources(node.op.condition).clbits)
+            if isinstance(node.op, SwitchCaseOp):
+                target = node.op.target
+                if isinstance(target, Clbit):
+                    cargs_bits.add(target)
+                elif isinstance(target, ClassicalRegister):
+                    cargs_bits.update(target)
+                else:  # Expr
+                    cargs_bits.update(node_resources(target).clbits)
+            cargs = {block_dag.find_bit(x).index for x in cargs_bits}
+            if isinstance(node.op, ControlFlowOp):
+                node_blocks[node._node_id] = [
+                    recurse(
+                        block,
+                        {
+                            inner: wire_map[outer]
+                            for inner, outer in zip(block.qubits, node.qargs)
+                        },
+                    )
+                    for block in node.op.blocks
+                ]
+            dag_list.append(
+                (
+                    node._node_id,
+                    [wire_map[x] for x in node.qargs],
+                    cargs,
+                    getattr(node.op, "_directive", False),
+                )
+            )
+        return SabreDAG(
+            num_physical_qubits, block_dag.num_clbits(), dag_list, node_blocks
+        )
+
+    return process_dag(dag, qubit_indices), circuit_to_dag_dict
 
 
 class DqcMapLayout(TransformationPass):

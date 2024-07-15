@@ -210,7 +210,12 @@ def main():
 
                     compiler = COMPILERS[name](conf)
 
-                    tqc = compiler.run(qc, backend=dev, seed_transpiler=seed)
+                    tqc = compiler.run(
+                        qc,
+                        backend=dev,
+                        layout_method=layout_method,
+                        seed_transpiler=seed,
+                    )
                     layout = tqc.layout
                     final_layout = layout.final_virtual_layout(filter_ancillas=True)
                     logger.debug(f"final layout: \n{final_layout}")
