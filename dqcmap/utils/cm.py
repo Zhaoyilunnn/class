@@ -1,7 +1,7 @@
 """A helper module for analyzing coupling map"""
 
 import logging
-from typing import List, Sequence, Tuple
+from typing import Any, List, Sequence, Tuple
 
 import rustworkx as rx
 from qiskit import QuantumCircuit
@@ -72,6 +72,11 @@ class CmHelper:
         Args:
             coupling_map: Coupling map in couplinglist format.
             region_size: Number of qubits in a connected region.
+            save_fig: Whether to save figures to disk.
+
+        Return:
+            (subgraphs, sg_nodes_lst): A tuple of subgraphs, ``subgraphs`` are
+            a set of rx.PyGraph, ``sg_nodes_lst`` is a list of subgraph node lists
         """
         g = rx.PyGraph()
 
@@ -123,3 +128,8 @@ class CmHelper:
         if save_fig:
             _draw_graphs(subgraphs, name_prefix="sg")
         return subgraphs, sg_nodes_lst
+
+    def virtual_pruning(
+        coupling_map, pruner: Any, region_size: int = 10, save_fig: bool = False
+    ):
+        """Partition the coupling_map into subgraphs and prune the edges between subgraphs"""
