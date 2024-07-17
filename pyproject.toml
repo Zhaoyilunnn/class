@@ -10,6 +10,7 @@ dependencies = [
     "matplotlib==3.9.1",
     "seaborn==0.13.2",
     "qiskit-qasm3-import==0.5.0",
+    "joblib==1.4.2",
 ]
 
 [tool.setuptools.packages.find]

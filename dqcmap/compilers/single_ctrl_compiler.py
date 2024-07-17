@@ -4,7 +4,7 @@ from qiskit import QuantumCircuit, transpile
 from qiskit.providers import Backend
 
 from dqcmap.basecompiler import BaseCompiler
-from dqcmap.controller import ControllerConfig
+from dqcmap.controller import ControllerConfig, MapStratety
 
 
 class SingleCtrlCompiler(BaseCompiler):
@@ -29,6 +29,9 @@ class SingleCtrlCompiler(BaseCompiler):
             num_trials_per_region: Number of permutations to try for each region.
         """
         super().__init__(ctrl_conf)
+        assert (
+            ctrl_conf.strategy is MapStratety.CONNECT
+        )  # currently only support this control arch
         self._num_try_region = num_try_region
         self._num_trials_per_region = num_trials_per_region
 
@@ -40,6 +43,7 @@ class SingleCtrlCompiler(BaseCompiler):
         layout_method=None,
         routing_method=None,
         seed_transpiler=None,
+        opt_level=1,
     ):
         random.seed(seed_transpiler)
         c2pq = self._conf.ctrl_to_pq

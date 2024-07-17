@@ -3,9 +3,11 @@ import logging
 import os
 import random
 import time
+from dataclasses import dataclass
 from typing import List
 
 import numpy as np
+from joblib import Parallel, delayed
 from qiskit import QuantumCircuit, qasm2, qasm3, transpile
 from qiskit.compiler import schedule
 from qiskit.providers.fake_provider import Fake127QPulseV1
@@ -14,14 +16,17 @@ from qiskit.visualization import plot_coupling_map, plot_error_map
 
 from dqcmap import ControllerConfig
 from dqcmap.compilers import QiskitDefaultCompiler, SingleCtrlCompiler
+from dqcmap.compilers.multi_ctrl_compiler import MultiCtrlCompiler
 from dqcmap.controller import MapStratety
 from dqcmap.evaluator import Eval
+from dqcmap.exceptions import DqcMapException
 from dqcmap.utils import check_swap_needed, get_cif_qubit_pairs, get_synthetic_dqc
 from dqcmap.utils.cm import CmHelper
 
 COMPILERS = {
     "baseline": QiskitDefaultCompiler,
     "single_ctrl": SingleCtrlCompiler,
+    "multi_ctrl": MultiCtrlCompiler,
 }
 
 
@@ -54,6 +59,12 @@ def get_args():
         help="Compiler method or a list of compiler methods splitted by `,`",
     )
     parser.add_argument("--ctrl", type=int, default=10, help="Number of controllers.")
+    parser.add_argument(
+        "--parallel",
+        type=int,
+        default=1,
+        help="Whether to run each circuit in parallel.",
+    )
 
     return parser.parse_args()
 
@@ -173,6 +184,89 @@ def parse_compiler_methods(args_comp: str):
     return comp_lst
 
 
+@dataclass
+class Result:
+    compiler_method: str = "multi_ctrl"
+    runtime: float = 0.0
+    perc_inter: float = 0.0
+    num_ops: int = 0
+
+
+def process_results(result_lst: List[Result | None], num_qubits: int):
+    perc_inter_dict = {}
+    runtime_dict = {}
+    num_op_dict = {}
+
+    for res in result_lst:
+        if res is None:
+            raise DqcMapException("Some circuit run failed")
+        perc_inter_dict.setdefault(res.compiler_method, [])
+        runtime_dict.setdefault(res.compiler_method, [])
+        num_op_dict.setdefault(res.compiler_method, [])
+        perc_inter_dict[res.compiler_method].append(res.perc_inter)
+        runtime_dict[res.compiler_method].append(res.runtime)
+        num_op_dict[res.compiler_method].append(res.num_ops)
+
+    for name, res_lst in perc_inter_dict.items():
+        percent = np.mean(res_lst)
+        runtime = np.mean(runtime_dict[name])
+        num_op = np.mean(num_op_dict[name])
+        print(f"{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}")
+
+
+def run_circuit(
+    qc: QuantumCircuit,
+    dev,
+    seed,
+    cm,
+    evaluator,
+    conf,
+    layout_method,
+    name,
+):
+    debug_qc(qc)
+
+    # percentage of inter-controller latency for each compiler method
+    perc_inter = {}
+    # total runtime for each compiler method
+    runtime = {}
+    # # ops for each compiler method
+    num_op = {}
+
+    try:
+        compiler = COMPILERS[name](conf)
+
+        tqc = compiler.run(
+            qc,
+            backend=dev,
+            layout_method=layout_method,
+            seed_transpiler=seed,
+        )
+        layout = tqc.layout
+        final_layout = layout.final_virtual_layout(filter_ancillas=True)
+        logger.debug(f"final layout: \n{final_layout}")
+        swap_needed = check_swap_needed(qc, final_layout, cm)
+
+        total_latency = evaluator(tqc, dev)
+        gate_latency = evaluator.gate_latency
+        ctrl_latency = evaluator.ctrl_latency
+        inner = evaluator.inner_latency
+        inter = evaluator.inter_latency
+
+        perc_inter = inter / total_latency
+        num_op = len(tqc.data)
+        # return perc_inter, total_latency, num_op
+        return Result(
+            compiler_method=name,
+            runtime=total_latency,
+            perc_inter=perc_inter,
+            num_ops=num_op,
+        )
+    except Exception as e:
+        logger.warning("failed ``run_circuit``")
+        return None
+
+
 def main():
     nq_lst = parse_num_qubits(ARGS.n)  # list of `num_qubits`
     num_circuits = ARGS.c
@@ -181,10 +275,6 @@ def main():
     num_ctrls = ARGS.ctrl
     dev = Fake127QPulseV1()
     cm = dev.configuration().coupling_map
-
-    percent_inter_res_dict = {}
-    runtime_res_dict = {}
-    num_op_res_dict = {}
 
     # Create controller configuration and evaluator
     conf = ControllerConfig(
@@ -195,47 +285,50 @@ def main():
     compiler_name_lst = parse_compiler_methods(ARGS.comp)
 
     # print result table header
-    print("num_qubits\tinit_layout\tpercent_inter\truntime\tnum_op")
+    print("num_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op")
 
     for n in nq_lst:
         qc_lst = gen_qc(num_circuits, n, n, ARGS.p, False, seed_base=seed)
-        for qc in qc_lst:
-            debug_qc(qc)
-
-            for layout_method in ["dqcmap"]:
-                for name in compiler_name_lst:  # name of initial layout methodology
-                    percent_inter_res_dict.setdefault(name, [])
-                    runtime_res_dict.setdefault(name, [])
-                    num_op_res_dict.setdefault(name, [])
-
-                    compiler = COMPILERS[name](conf)
-
-                    tqc = compiler.run(
-                        qc,
-                        backend=dev,
-                        layout_method=layout_method,
-                        seed_transpiler=seed,
-                    )
-                    layout = tqc.layout
-                    final_layout = layout.final_virtual_layout(filter_ancillas=True)
-                    logger.debug(f"final layout: \n{final_layout}")
-                    swap_needed = check_swap_needed(qc, final_layout, cm)
-
-                    total_latency = evaluator(tqc, dev)
-                    gate_latency = evaluator.gate_latency
-                    ctrl_latency = evaluator.ctrl_latency
-                    inner = evaluator.inner_latency
-                    inter = evaluator.inter_latency
-
-                    percent_inter_res_dict[name].append(inter / total_latency)
-                    runtime_res_dict[name].append(total_latency)
-                    num_op_res_dict[name].append(len(tqc.data))
-
-        for name, res_lst in percent_inter_res_dict.items():
-            percent = np.mean(res_lst)
-            runtime = np.mean(runtime_res_dict[name])
-            num_op = np.mean(num_op_res_dict[name])
-            print(f"{n}\t{name}\t{percent}\t{runtime}\t{num_op}")
+        if ARGS.parallel:
+            results = Parallel(n_jobs=-1)(
+                delayed(run_circuit)(
+                    qc,
+                    dev,
+                    seed,
+                    cm,
+                    evaluator,
+                    conf,
+                    layout_method,
+                    name,
+                )
+                for qc in qc_lst
+                for layout_method in ["dqcmap"]
+                for name in compiler_name_lst
+            )
+            # print(results)
+            results = [res for res in results]
+        else:
+            results = []
+            for qc in qc_lst:
+                for layout_method in ["dqcmap"]:
+                    for name in compiler_name_lst:
+                        res = run_circuit(
+                            qc,
+                            dev,
+                            seed,
+                            cm,
+                            evaluator,
+                            conf,
+                            layout_method,
+                            name,
+                        )
+                        results.append(res)
+        process_results(results, n)
+        # for name, res_lst in percent_inter_res_dict.items():
+        #     percent = np.mean(res_lst)
+        #     runtime = np.mean(runtime_res_dict[name])
+        #     num_op = np.mean(num_op_res_dict[name])
+        #     print(f"{n}\t{name}\t{percent}\t{runtime}\t{num_op}")
 
 
 if __name__ == "__main__":

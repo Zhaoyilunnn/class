@@ -74,6 +74,10 @@ class ControllerConfig:
             self._pq2c, self._c2pq = self._gen_mapping()
         return self._c2pq
 
+    @property
+    def strategy(self):
+        return self._strategy
+
     def _gen_trivial_mapping(self):
         """Directly partion the qubits into groups"""
         pq2c, c2pq = {}, {}
@@ -123,6 +127,7 @@ class ControllerConfig:
                 np.array(remain_nodes_lst, dtype=int), num_remain_ctrls
             )
             for idx, sub_lst in enumerate(split_lst):
+                sub_lst = sub_lst.tolist()
                 for pq in sub_lst:
                     pq2c[pq] = ctrl_idx + idx
                 c2pq[ctrl_idx + idx] = sub_lst

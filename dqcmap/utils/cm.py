@@ -9,6 +9,8 @@ from qiskit.transpiler.coupling import CouplingMap
 from rustworkx.visit import BFSVisitor
 from rustworkx.visualization import graphviz_draw
 
+from dqcmap.pruners import PrunerProvider
+
 logger = logging.getLogger(__name__)
 
 
@@ -129,7 +131,15 @@ class CmHelper:
             _draw_graphs(subgraphs, name_prefix="sg")
         return subgraphs, sg_nodes_lst
 
-    def virtual_pruning(
-        coupling_map, pruner: Any, region_size: int = 10, save_fig: bool = False
+    @staticmethod
+    def virtual_prune(
+        coupling_map: List[List[int]],
+        sg_nodes_lst: List[List[int]],
+        pruning_method: str = "trivial",
+        **pruner_configs,
     ):
         """Partition the coupling_map into subgraphs and prune the edges between subgraphs"""
+        pruner = PrunerProvider.get(
+            pruning_method, *(sg_nodes_lst, coupling_map), **pruner_configs
+        )
+        return pruner.run()
