@@ -4,7 +4,7 @@ import os
 import random
 import time
 from dataclasses import dataclass
-from typing import List
+from typing import Dict, List, Type
 
 import numpy as np
 from joblib import Parallel, delayed
@@ -15,6 +15,7 @@ from qiskit.providers.fake_provider.fake_qasm_backend import json
 from qiskit.visualization import plot_coupling_map, plot_error_map
 
 from dqcmap import ControllerConfig
+from dqcmap.basecompiler import BaseCompiler
 from dqcmap.compilers import QiskitDefaultCompiler, SingleCtrlCompiler
 from dqcmap.compilers.multi_ctrl_compiler import MultiCtrlCompiler
 from dqcmap.controller import MapStratety
@@ -23,7 +24,7 @@ from dqcmap.exceptions import DqcMapException
 from dqcmap.utils import check_swap_needed, get_cif_qubit_pairs, get_synthetic_dqc
 from dqcmap.utils.cm import CmHelper
 
-COMPILERS = {
+COMPILERS: Dict[str, Type[BaseCompiler]] = {
     "baseline": QiskitDefaultCompiler,
     "single_ctrl": SingleCtrlCompiler,
     "multi_ctrl": MultiCtrlCompiler,
@@ -196,28 +197,35 @@ class Result:
     runtime: float = 0.0
     perc_inter: float = 0.0
     num_ops: int = 0
+    depth: int = 0
 
 
 def process_results(result_lst: List[Result | None], num_qubits: int):
     perc_inter_dict = {}
     runtime_dict = {}
     num_op_dict = {}
+    depth_dict = {}
 
     for res in result_lst:
         if res is None:
             raise DqcMapException("Some circuit run failed")
+
         perc_inter_dict.setdefault(res.compiler_method, [])
         runtime_dict.setdefault(res.compiler_method, [])
         num_op_dict.setdefault(res.compiler_method, [])
+        depth_dict.setdefault(res.compiler_method, [])
+
         perc_inter_dict[res.compiler_method].append(res.perc_inter)
         runtime_dict[res.compiler_method].append(res.runtime)
         num_op_dict[res.compiler_method].append(res.num_ops)
+        depth_dict[res.compiler_method].append(res.depth)
 
     for name, res_lst in perc_inter_dict.items():
         percent = np.mean(res_lst)
         runtime = np.mean(runtime_dict[name])
         num_op = np.mean(num_op_dict[name])
-        print(f"{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}")
+        depth = np.mean(depth_dict[name])
+        print(f"{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}")
 
 
 def run_circuit(
@@ -254,12 +262,14 @@ def run_circuit(
 
         perc_inter = inter / total_latency
         num_op = len(tqc.data)
+        depth = tqc.depth()
         # return perc_inter, total_latency, num_op
         return Result(
             compiler_method=name,
             runtime=total_latency,
             perc_inter=perc_inter,
             num_ops=num_op,
+            depth=depth,
         )
     except Exception as e:
         logger.warning(f"failed ``run_circuit`` with exception: {e}")
@@ -284,7 +294,7 @@ def main():
     compiler_name_lst = parse_compiler_methods(ARGS.comp)
 
     # print result table header
-    print("num_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op")
+    print("num_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth")
 
     for n in nq_lst:
         qc_lst = gen_qc(num_circuits, n, n, ARGS.p, False, seed_base=seed)

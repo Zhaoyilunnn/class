@@ -45,7 +45,7 @@ class ControllerConfig:
                 f"Latency within the same controller is expected to be at least 5x shorter than the latency across different controllers"
             )
         assert (
-            num_qubits > 0 and num_controllers > 0 and num_qubits > 2 * num_controllers
+            num_qubits > 0 and num_controllers > 0 and num_qubits >= 2 * num_controllers
         )
         self._num_qubits = num_qubits
         self._num_controllers = num_controllers
@@ -90,7 +90,7 @@ class ControllerConfig:
             )
             for pq in sub_lst:
                 pq2c[pq] = idx
-            c2pq[idx] = sub_lst
+            c2pq[idx] = sub_lst.tolist()
         return pq2c, c2pq
 
     def _gen_connected_mapping(self):

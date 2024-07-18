@@ -21,7 +21,7 @@ class BaseCompiler(ABC):
         routing_method=None,
         seed_transpiler=None,
         opt_level: int = 1,
-    ) -> Any:
+    ) -> QuantumCircuit:
         """
         Run transpilation
 

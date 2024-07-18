@@ -11,6 +11,7 @@ dependencies = [
     "seaborn==0.13.2",
     "qiskit-qasm3-import==0.5.0",
     "joblib==1.4.2",
+    "z3-solver==4.13.0.0",
 ]
 
 [tool.setuptools.packages.find]
