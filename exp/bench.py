@@ -1,18 +1,13 @@
 import argparse
 import logging
 import os
-import random
-import time
 from dataclasses import dataclass
 from typing import Dict, List, Type
 
 import numpy as np
 from joblib import Parallel, delayed
 from qiskit import QuantumCircuit, qasm2, qasm3
-from qiskit.compiler import schedule
 from qiskit.providers.fake_provider import Fake127QPulseV1
-from qiskit.providers.fake_provider.fake_qasm_backend import json
-from qiskit.visualization import plot_coupling_map, plot_error_map
 
 from dqcmap import ControllerConfig
 from dqcmap.basecompiler import BaseCompiler
@@ -21,7 +16,7 @@ from dqcmap.compilers.multi_ctrl_compiler import MultiCtrlCompiler
 from dqcmap.controller import MapStratety
 from dqcmap.evaluator import Eval
 from dqcmap.exceptions import DqcMapException
-from dqcmap.utils import check_swap_needed, get_cif_qubit_pairs, get_synthetic_dqc
+from dqcmap.utils import check_swap_needed, get_synthetic_dqc
 from dqcmap.utils.cm import CmHelper
 
 COMPILERS: Dict[str, Type[BaseCompiler]] = {
@@ -54,6 +49,12 @@ def get_args():
         "--log", type=int, default=0, help="Whether to output log for debugging."
     )
     parser.add_argument(
+        "--debug-only",
+        type=str,
+        default="",
+        help="Specifying which module to output debut info.",
+    )
+    parser.add_argument(
         "--comp",
         type=str,
         default="baseline,single_ctrl",
@@ -64,7 +65,7 @@ def get_args():
         "--parallel",
         type=int,
         default=1,
-        help="Whether to run each circuit in parallel.",
+        help="Whether to run each circuit in parallel. Note that you need to turn off this flag when --log is on.",
     )
     parser.add_argument(
         "--opt",
@@ -80,7 +81,10 @@ ARGS = get_args()
 
 if ARGS.log:
     # Set up logging
-    logger = logging.getLogger()
+    if ARGS.debug_only:
+        logger = logging.getLogger(ARGS.debug_only)
+    else:
+        logger = logging.getLogger()
     logger.setLevel(
         logging.DEBUG
     )  # Set the logger to the desired level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -99,14 +103,13 @@ if ARGS.log:
 
     # Add ch to logger
     logger.addHandler(ch)
-
-    # logger.disabled = True
 else:
     logger = logging.getLogger(__name__)
 
 
 def debug_qc(qc: QuantumCircuit):
     # print(qasm2.dumps(qc))
+    logger = logging.getLogger(__name__)
     logger.debug(f"Quantum Circuit::")
     logger.debug(
         f" ===> OpenQASM3::\n{qasm3.dumps(qc)}\n ===> Circuit::\n{qc.draw('text')}"
@@ -251,6 +254,7 @@ def run_circuit(
         )
         layout = tqc.layout
         final_layout = layout.final_virtual_layout(filter_ancillas=True)
+        logger = logging.getLogger(__name__)
         logger.debug(f"final layout: \n{final_layout}")
         swap_needed = check_swap_needed(qc, final_layout, cm)
 
