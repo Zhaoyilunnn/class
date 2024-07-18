@@ -19,18 +19,19 @@ class TrivialMapper(BaseMapper):
         n_logical = self._circ_prop.num_qubits
 
         # Set a fixed random seed for Z3
-        print("Setting random seed for z3...")
-        set_param('smt.random_seed', 42)
-        
-        print("Initializing solver...")
+        set_param("smt.random_seed", 42)
+
+        logger.info("Initializing solver...")
         optimizer = Optimize()
 
         n_physical = sum(len(qubits) for qubits in ctrl_to_pq.values())
-        
-        print(f"Creating variables for {n_logical} logical qubits and {n_physical} physical qubits...")
+
+        logger.info(
+            f"Creating variables for {n_logical} logical qubits and {n_physical} physical qubits..."
+        )
         x = [[Bool(f"x_{i}_{j}") for j in range(n_physical)] for i in range(n_logical)]
 
-        print("Adding constraints...")
+        logger.info("Adding constraints...")
         # Each logical qubit must be mapped to exactly one physical qubit
         for i in range(n_logical):
             optimizer.add(Sum([If(x[i][j], 1, 0) for j in range(n_physical)]) == 1)
@@ -41,13 +42,16 @@ class TrivialMapper(BaseMapper):
 
         # Each controller can control only its assigned physical qubits
         for ctrl, qubits in ctrl_to_pq.items():
-            optimizer.add(Sum([If(x[i][j], 1, 0) for i in range(n_logical) for j in qubits]) <= len(qubits))
+            optimizer.add(
+                Sum([If(x[i][j], 1, 0) for i in range(n_logical) for j in qubits])
+                <= len(qubits)
+            )
 
         # Count occurrences of each CIF pair
         pair_counts = Counter(cif_pairs)
 
         # Objective function: Maximize the weighted number of CIF pairs on the same controller
-        print("Setting up objective function...")
+        logger.info("Setting up objective function...")
         objective = Sum(
             [
                 If(
@@ -66,13 +70,10 @@ class TrivialMapper(BaseMapper):
             ]
         )
 
-        print("Maximizing objective function...")
         optimizer.maximize(objective)
 
         # Solve the problem
-        print("Solving...")
         if optimizer.check() == sat:
-            print("Solution found. Extracting model...")
             model = optimizer.model()
             mapping = [-1] * n_logical
             for i in range(n_logical):
@@ -80,7 +81,7 @@ class TrivialMapper(BaseMapper):
                     if model.evaluate(x[i][j]):
                         mapping[i] = j
             objective_value = model.evaluate(objective).as_long()
-            logger.warning(
+            logger.debug(
                 f"Fount initial mapping: {mapping}, with objective_value: {objective_value}"
             )
             return mapping

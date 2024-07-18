@@ -115,7 +115,7 @@ class ControllerConfig:
                 remain_nodes_lst.extend(sg)
 
         if len(remain_nodes_lst) > region_size:
-            logger.warning(
+            logger.debug(
                 f"Merged an unconnected nodes: {remain_nodes_lst} list larger than region size: {region_size}"
             )
 
