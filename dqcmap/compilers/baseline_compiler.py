@@ -19,6 +19,7 @@ class QiskitDefaultCompiler(BaseCompiler):
         layout_method=None,
         routing_method=None,
         seed_transpiler=None,
+        opt_level=1,
     ):
         return transpile(
             qc,

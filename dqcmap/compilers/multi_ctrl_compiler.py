@@ -1,11 +1,9 @@
-import random
-
 from qiskit import QuantumCircuit, transpile
 from qiskit.providers import Backend, BackendV1, BackendV2
 
 from dqcmap.basecompiler import BaseCompiler
 from dqcmap.controller import ControllerConfig, MapStratety
-from dqcmap.utils.cm import CmHelper
+from dqcmap.pruners import virtual_prune
 
 
 class MultiCtrlCompiler(BaseCompiler):
@@ -37,25 +35,29 @@ class MultiCtrlCompiler(BaseCompiler):
         seed_transpiler=None,
         opt_level=1,
     ):
+        if isinstance(backend, BackendV1):
+            cm = backend.configuration().coupling_map
+        elif isinstance(backend, BackendV2):
+            cm = backend.coupling_map
+        else:
+            raise ValueError(f"Unknown backend type: {backend}")
+
         if opt_level == 1:
-            if isinstance(backend, BackendV1):
-                cm = backend.configuration().coupling_map
-            elif isinstance(backend, BackendV2):
-                cm = backend.coupling_map
-            else:
-                raise ValueError(f"Unknown backend type: {backend}")
-
-            pruned_cm = CmHelper.virtual_prune(cm, self._sg_nodes_lst)
-
-            tqc = transpile(
-                qc,
-                backend=backend,
-                coupling_map=pruned_cm,
-                layout_method=layout_method,
-                routing_method=routing_method,
-                seed_transpiler=seed_transpiler,
+            pruned_cm = virtual_prune(cm, self._sg_nodes_lst)
+        elif opt_level == 2:
+            pruned_cm = virtual_prune(
+                cm, self._sg_nodes_lst, pruning_method="trivial_v2", prob=0.5
             )
-
-            return tqc
         else:
             raise NotImplementedError(f"Unsupported optimization level {opt_level}")
+
+        tqc = transpile(
+            qc,
+            backend=backend,
+            coupling_map=pruned_cm,
+            layout_method=layout_method,
+            routing_method=routing_method,
+            seed_transpiler=seed_transpiler,
+        )
+
+        return tqc

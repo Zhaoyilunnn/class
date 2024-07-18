@@ -31,3 +31,11 @@ class TestCmHelper:
 
         for sg in sg_lst:
             assert rx.is_connected(sg)
+
+    def test_to_single_direct(self):
+        cm = [[0, 1], [1, 0], [2, 3], [3, 2], [1, 2]]
+
+        # single-direction coupling map
+        sd_cm = CmHelper.to_single_direct(cm)
+
+        assert sd_cm == [[0, 1], [2, 3], [1, 2]]

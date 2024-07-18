@@ -1,15 +1,13 @@
 """A helper module for analyzing coupling map"""
 
 import logging
-from typing import Any, List, Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 import rustworkx as rx
 from qiskit import QuantumCircuit
 from qiskit.transpiler.coupling import CouplingMap
 from rustworkx.visit import BFSVisitor
 from rustworkx.visualization import graphviz_draw
-
-from dqcmap.pruners import PrunerProvider
 
 logger = logging.getLogger(__name__)
 
@@ -132,14 +130,17 @@ class CmHelper:
         return subgraphs, sg_nodes_lst
 
     @staticmethod
-    def virtual_prune(
-        coupling_map: List[List[int]],
-        sg_nodes_lst: List[List[int]],
-        pruning_method: str = "trivial",
-        **pruner_configs,
-    ):
-        """Partition the coupling_map into subgraphs and prune the edges between subgraphs"""
-        pruner = PrunerProvider.get(
-            pruning_method, *(sg_nodes_lst, coupling_map), **pruner_configs
-        )
-        return pruner.run()
+    def to_single_direct(coupling_map: List[List[int]]):
+        seen = set()
+        res = []
+
+        for e in coupling_map:
+            assert len(e) == 2
+            tup_e = tuple(e)
+            reverse = (e[1], e[0])
+
+            if tup_e not in seen and reverse not in seen:
+                seen.add(tup_e)
+                res.append(e)
+
+        return res

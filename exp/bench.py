@@ -8,7 +8,7 @@ from typing import List
 
 import numpy as np
 from joblib import Parallel, delayed
-from qiskit import QuantumCircuit, qasm2, qasm3, transpile
+from qiskit import QuantumCircuit, qasm2, qasm3
 from qiskit.compiler import schedule
 from qiskit.providers.fake_provider import Fake127QPulseV1
 from qiskit.providers.fake_provider.fake_qasm_backend import json
@@ -64,6 +64,12 @@ def get_args():
         type=int,
         default=1,
         help="Whether to run each circuit in parallel.",
+    )
+    parser.add_argument(
+        "--opt",
+        type=int,
+        default=2,
+        help="Optimization level used in dqcmap compiler. Note that this is different from qiskit transipler optimization level",
     )
 
     return parser.parse_args()
@@ -224,16 +230,8 @@ def run_circuit(
     layout_method,
     name,
 ):
-    debug_qc(qc)
-
-    # percentage of inter-controller latency for each compiler method
-    perc_inter = {}
-    # total runtime for each compiler method
-    runtime = {}
-    # # ops for each compiler method
-    num_op = {}
-
     try:
+        debug_qc(qc)
         compiler = COMPILERS[name](conf)
 
         tqc = compiler.run(
@@ -241,6 +239,7 @@ def run_circuit(
             backend=dev,
             layout_method=layout_method,
             seed_transpiler=seed,
+            opt_level=ARGS.opt,
         )
         layout = tqc.layout
         final_layout = layout.final_virtual_layout(filter_ancillas=True)
@@ -263,7 +262,7 @@ def run_circuit(
             num_ops=num_op,
         )
     except Exception as e:
-        logger.warning("failed ``run_circuit``")
+        logger.warning(f"failed ``run_circuit`` with exception: {e}")
         return None
 
 
@@ -324,11 +323,6 @@ def main():
                         )
                         results.append(res)
         process_results(results, n)
-        # for name, res_lst in percent_inter_res_dict.items():
-        #     percent = np.mean(res_lst)
-        #     runtime = np.mean(runtime_res_dict[name])
-        #     num_op = np.mean(num_op_res_dict[name])
-        #     print(f"{n}\t{name}\t{percent}\t{runtime}\t{num_op}")
 
 
 if __name__ == "__main__":

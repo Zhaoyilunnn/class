@@ -1,4 +1,4 @@
-from dqcmap.pruners import TrivialPruner
+from dqcmap.pruners import TrivialPruner, TrivialPrunerV2
 
 """
 Consider following coupling map
@@ -36,6 +36,7 @@ SG_NODES_LIST = [[0, 3], [1, 4], [2, 5]]
 
 class TestTrivialPruner:
     pruner = TrivialPruner(SG_NODES_LIST, CM)
+    pruner_v2 = TrivialPrunerV2(SG_NODES_LIST, CM)
 
     def test_edges_inter_sg(self):
         expected_edges = [
@@ -62,6 +63,22 @@ class TestTrivialPruner:
         assert self.pruner._pq2sg[2] == 2
         assert self.pruner._pq2sg[5] == 2
 
-    def test_run(self):
+    def test_pruner_run(self):
         cm = self.pruner.run()
         assert len(cm) < len(self.pruner._cm)
+
+    def test_pruner_v2_run(self):
+        cm = self.pruner_v2.run()
+        assert len(cm) < len(self.pruner_v2._cm)
+
+        pruned_set = set()
+        original_set = set()
+
+        for e in self.pruner_v2._cm:
+            original_set.add(tuple(e))
+        for e in cm:
+            pruned_set.add(tuple(e))
+
+        for e in original_set - pruned_set:
+            reverse = (e[1], e[0])
+            assert reverse not in pruned_set
