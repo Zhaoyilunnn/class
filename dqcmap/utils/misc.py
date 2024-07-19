@@ -1,12 +1,16 @@
 import logging
 import random
-from typing import Any, List, Optional, Set
+from collections.abc import Iterable
+from typing import Any, Dict, List, Optional, Set
 
 from qiskit import QuantumCircuit
 from qiskit.circuit import CircuitInstruction, Clbit, Qubit
 from qiskit.circuit.random.utils import random_circuit
 from qiskit.providers import Backend, BackendV1, BackendV2
+from qiskit.providers.fake_provider import FakeQasmBackend
+from qiskit.providers.models.backendproperties import BackendProperties
 from qiskit.transpiler import Layout
+from qiskit_ibm_runtime.ibm_backend import IBMBackend
 
 logger = logging.getLogger(__name__)
 
@@ -145,3 +149,30 @@ def check_swap_needed(qc: QuantumCircuit, layout: Layout, cm: List[List[int]]) -
                 if not [pq0, pq1] in cm:
                     return True
     return False
+
+
+def update_backend_cx_time(backend: Backend, new_time: float):
+    """
+    Modify the two-qubit gate time of backend device model
+
+    Args:
+        backend: The backend device model.
+        new_time: The time of two-qubit gate to be updated.
+    """
+
+    if isinstance(backend, FakeQasmBackend) or isinstance(backend, IBMBackend):
+        props = backend.properties()
+        assert isinstance(props, BackendProperties)
+        props_dict: dict = props.to_dict()
+        assert isinstance(props_dict["gates"], Iterable)
+        for item in props_dict["gates"]:
+            if len(item["qubits"]) == 2:
+                for dnuv in item["parameters"]:
+                    if dnuv["name"] == "gate_length":
+                        dnuv["value"] = new_time
+
+        props = BackendProperties.from_dict(props_dict)
+        backend._properties = props
+        return
+
+    raise NotImplementedError(f"Unsupported backend type: {type(backend)}")

@@ -1,10 +1,14 @@
+import math
+
 import rustworkx as rx
 from qiskit import QuantumCircuit
 from qiskit.circuit.random.utils import random_circuit
-from qiskit.providers.fake_provider import Fake27QPulseV1
+from qiskit.providers.fake_provider import Fake27QPulseV1, Fake127QPulseV1
+from qiskit.providers.models import BackendProperties
 
 from dqcmap.utils import get_cif_qubit_pairs
 from dqcmap.utils.cm import CmHelper
+from dqcmap.utils.misc import update_backend_cx_time
 
 
 def test_get_cif_qubit_pairs():
@@ -19,6 +23,18 @@ def test_get_cif_qubit_pairs():
     assert pairs[1][0] is qc.qubits[1]
 
     print(qc.draw("text"))
+
+
+def test_update_backend_cx_time():
+    dev = Fake127QPulseV1()
+
+    update_backend_cx_time(dev, 80)
+
+    for item in dev.properties().to_dict()["gates"]:
+        if len(item["qubits"]) == 2:
+            for dnuv in item["parameters"]:
+                if dnuv["name"] == "gate_length":
+                    assert math.isclose(dnuv["value"], 80)
 
 
 class TestCmHelper:
