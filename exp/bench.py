@@ -18,6 +18,7 @@ from dqcmap.evaluator import Eval
 from dqcmap.exceptions import DqcMapException
 from dqcmap.utils import check_swap_needed, get_synthetic_dqc
 from dqcmap.utils.cm import CmHelper
+from dqcmap.utils.misc import update_backend_cx_time, update_backend_cx_time_v2
 
 COMPILERS: Dict[str, Type[BaseCompiler]] = {
     "baseline": QiskitDefaultCompiler,
@@ -72,6 +73,12 @@ def get_args():
         type=int,
         default=2,
         help="Optimization level used in dqcmap compiler. Note that this is different from qiskit transipler optimization level",
+    )
+    parser.add_argument(
+        "--t",
+        default=0.5,
+        type=float,
+        help="Specifying the scaling factor of two-qubit gate time. State-of-the-art two-qubit gate time is much smaller than public available devices. So use this config to simulate most recent devices.",
     )
 
     return parser.parse_args()
@@ -287,6 +294,7 @@ def main():
     name = ARGS.init_layout_type
     num_ctrls = ARGS.ctrl
     dev = Fake127QPulseV1()
+    # update_backend_cx_time_v2(dev, ARGS.t)
     cm = dev.configuration().coupling_map
 
     # Create controller configuration and evaluator

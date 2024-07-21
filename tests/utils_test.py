@@ -1,3 +1,4 @@
+import copy
 import math
 
 import rustworkx as rx
@@ -8,7 +9,7 @@ from qiskit.providers.models import BackendProperties
 
 from dqcmap.utils import get_cif_qubit_pairs
 from dqcmap.utils.cm import CmHelper
-from dqcmap.utils.misc import update_backend_cx_time
+from dqcmap.utils.misc import update_backend_cx_time, update_backend_cx_time_v2
 
 
 def test_get_cif_qubit_pairs():
@@ -35,6 +36,33 @@ def test_update_backend_cx_time():
             for dnuv in item["parameters"]:
                 if dnuv["name"] == "gate_length":
                     assert math.isclose(dnuv["value"], 80)
+
+
+def test_update_backend_cx_time_v2():
+    dev = Fake127QPulseV1()
+    defs = copy.deepcopy(dev.defaults().to_dict())  # used for comparison
+    update_backend_cx_time_v2(dev, 0.5)
+    defs_dict = dev._defaults.to_dict()
+
+    assert "cmd_def" in defs_dict
+    cmd_def = defs_dict["cmd_def"]
+
+    for i, cmd in enumerate(cmd_def):
+        if "qubits" in cmd and len(cmd["qubits"]) == 2:
+            # found two qubit gate pulse definitions
+            assert "sequence" in cmd
+            sequence = cmd["sequence"]
+
+            for j, seq in enumerate(sequence):
+                if "parameters" in seq:
+                    param = seq["parameters"]
+                    if "duration" in param:
+                        dur = param["duration"]
+
+                        dur_orig = defs["cmd_def"][i]["sequence"][j]["parameters"][
+                            "duration"
+                        ]
+                        assert dur == int(dur_orig * 0.5)
 
 
 class TestCmHelper:

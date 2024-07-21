@@ -8,6 +8,7 @@ from qiskit.circuit import CircuitInstruction, Clbit, Qubit
 from qiskit.circuit.random.utils import random_circuit
 from qiskit.providers import Backend, BackendV1, BackendV2
 from qiskit.providers.fake_provider import FakeQasmBackend
+from qiskit.providers.models import PulseDefaults
 from qiskit.providers.models.backendproperties import BackendProperties
 from qiskit.transpiler import Layout
 from qiskit_ibm_runtime.ibm_backend import IBMBackend
@@ -86,7 +87,9 @@ def get_synthetic_dqc(
     use_qiskit: bool = True,
     seed: int = 1900,
 ) -> QuantumCircuit:
-    """Generate a random dynamic quantum circuit based on specified configurations
+    """Generate a random dynamic quantum circuit based on specified configurations,
+    In each step, we choose either to add a cif pair or add a cnot gate based on ``cond_ratio``
+
     Args:
         num_qubits (int): number of qubits.
         num_layers (int): number of layers
@@ -124,6 +127,7 @@ def get_synthetic_dqc(
                 qc.measure(measure_idxes[l][n], measure_idxes[l][n])
                 cond_cbit = qc.clbits[measure_idxes[l][n]]
                 qc.h(apply_qubits[l][n]).c_if(cond_cbit, measure_idxes[l][n])
+            else:
                 if control_qubits[l][n] != target_qubits[l][n]:
                     logger.debug(
                         f" ===> Adding cx between lq {control_qubits[l]} and {target_qubits[l]}"
@@ -158,6 +162,14 @@ def update_backend_cx_time(backend: Backend, new_time: float):
     Args:
         backend: The backend device model.
         new_time: The time of two-qubit gate to be updated.
+
+    Notes:
+        This method will NOT affect the result of schedule,
+        because the pulse durations are defined in another
+        place.
+
+    References:
+        https://github.com/Qiskit/qiskit/blob/1.1.1/qiskit/providers/fake_provider/backends_v1/fake_127q_pulse/defs_washington.json
     """
 
     if isinstance(backend, FakeQasmBackend) or isinstance(backend, IBMBackend):
@@ -176,3 +188,40 @@ def update_backend_cx_time(backend: Backend, new_time: float):
         return
 
     raise NotImplementedError(f"Unsupported backend type: {type(backend)}")
+
+
+def update_backend_cx_time_v2(backend: Backend, scale_factor: float):
+    """Modify the two-qubit gate time of backend device model
+
+    Args:
+        backend: The backend device model.
+        scale_factor: New duration will be modified as ``duration * scale_factor``
+    """
+
+    if isinstance(backend, FakeQasmBackend) or isinstance(backend, IBMBackend):
+        assert hasattr(backend, "defaults")
+        backend.defaults()  # call this method to set ``_defaults``
+
+        assert isinstance(backend._defaults, PulseDefaults)
+
+        defs_dict = backend._defaults.to_dict()
+
+        assert "cmd_def" in defs_dict
+        cmd_def = defs_dict["cmd_def"]
+
+        for cmd in cmd_def:
+            if "qubits" in cmd and len(cmd["qubits"]) == 2:
+                # found two qubit gate pulse definitions
+                assert "sequence" in cmd
+                sequence = cmd["sequence"]
+
+                for seq in sequence:
+                    if "parameters" in seq:
+                        param = seq["parameters"]
+                        if "duration" in param:
+                            dur = param["duration"]
+                            dur *= scale_factor
+                            param["duration"] = int(dur)
+
+        # update _defaults
+        backend._defaults = PulseDefaults.from_dict(defs_dict)
