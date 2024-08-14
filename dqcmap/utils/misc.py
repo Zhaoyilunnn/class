@@ -222,6 +222,10 @@ def update_backend_cx_time_v2(backend: Backend, scale_factor: float):
                             dur = param["duration"]
                             dur *= scale_factor
                             param["duration"] = int(dur)
+                        if "width" in param:
+                            width = param["width"]
+                            width *= scale_factor
+                            param["width"] = int(width)
 
         # update _defaults
         backend._defaults = PulseDefaults.from_dict(defs_dict)

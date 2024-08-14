@@ -294,7 +294,7 @@ def main():
     name = ARGS.init_layout_type
     num_ctrls = ARGS.ctrl
     dev = Fake127QPulseV1()
-    # update_backend_cx_time_v2(dev, ARGS.t)
+    update_backend_cx_time_v2(dev, ARGS.t)
     cm = dev.configuration().coupling_map
 
     # Create controller configuration and evaluator

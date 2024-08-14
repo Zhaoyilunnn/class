@@ -63,6 +63,13 @@ def test_update_backend_cx_time_v2():
                             "duration"
                         ]
                         assert dur == int(dur_orig * 0.5)
+                    if "width" in param:
+                        wid = param["width"]
+
+                        wid_orig = defs["cmd_def"][i]["sequence"][j]["parameters"][
+                            "width"
+                        ]
+                        assert wid == int(wid_orig * 0.5)
 
 
 class TestCmHelper:

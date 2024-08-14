@@ -59,7 +59,11 @@ class MultiCtrlCompiler(BaseCompiler):
         elif opt_level == 3:
             # 1. mapping
             circ_prop = CircProperty(qc)
-            initial_layout = mapping(self._conf, circ_prop)
+            initial_layout = mapping(self._conf, circ_prop, mapper_name="kl_partition")
+        elif opt_level == 4:
+            # 1. mapping
+            circ_prop = CircProperty(qc)
+            initial_layout = mapping(self._conf, circ_prop, mapper_name="heuristic")
             # 2. pruning
             coupling_map = virtual_prune(
                 cm, self._sg_nodes_lst, pruning_method="trivial_v2", prob=0.5
