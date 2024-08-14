@@ -217,8 +217,8 @@ def process_results(result_lst: List[Result | None], num_qubits: int):
     depth_dict = {}
 
     for res in result_lst:
-        if res is None:
-            raise DqcMapException("Some circuit run failed")
+        if not isinstance(res, Result):
+            raise DqcMapException(f"Some circuit run failed due to {type(res)}: {res}")
 
         perc_inter_dict.setdefault(res.compiler_method, [])
         runtime_dict.setdefault(res.compiler_method, [])
@@ -283,8 +283,7 @@ def run_circuit(
             depth=depth,
         )
     except Exception as e:
-        logger.warning(f"failed ``run_circuit`` with exception: {e}")
-        return None
+        return e
 
 
 def main():
