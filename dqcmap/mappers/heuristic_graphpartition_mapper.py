@@ -1,23 +1,26 @@
-import logging
 import random
+import time
 from collections import defaultdict
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple
 
 from dqcmap.basemapper import BaseMapper
+from dqcmap.circuit_prop import CircProperty
+from dqcmap.controller import ControllerConfig
 from dqcmap.exceptions import DqcMapException
-
-logger = logging.getLogger(__name__)
 
 
 class HeuristicMapper(BaseMapper):
-    """global calculate_gain, max(single move gain, swap gain)
-    with the help of local_search,
-    and optimize_mapping,
-    and find_best_move,the most important method in this class
+    """
+    global calculate_gain, max(single move gain, swap gain)
+        with the help of local_search,
+        and optimize_mapping,
+        and find_best_move,the most important method in this class
+    this version is Accelerated
+    Introduce a caching mechanism in the find_best_move and calculate_move_gain methods to reduce redundant calculations.
     """
 
-    def __init__(self, ctrl_conf, circ_prop):
-        super().__init__(ctrl_conf, circ_prop)
+    def __init__(self, circ_prop: CircProperty, ctrl_conf: ControllerConfig):
+        super().__init__(circ_prop, ctrl_conf)
         self.ctrl_to_pq = self._ctrl_conf.ctrl_to_pq
         self.cif_pairs = self._circ_prop.cif_pairs
         self.n_logical = self._circ_prop.num_qubits
@@ -31,17 +34,15 @@ class HeuristicMapper(BaseMapper):
             self.graph[u].append(v)
             self.graph[v].append(u)
 
-    def run(self) -> List[int]:
-        logger.info("Starting the mapping process...")
-        # print("Starting the mapping process...")
-        res = []
+        self.move_gain_cache = {}
+        self.swap_gain_cache = {}
 
+    def run(self) -> List[int]:
         max_iterations = 10
         best_mapping = None
         best_score = float("inf")
 
-        for i in range(max_iterations):
-            logger.info(f"Iteration {i+1}/{max_iterations}")
+        for _ in range(max_iterations):
             current_mapping = self.generate_initial_mapping()
             current_score = self.evaluate_mapping(current_mapping)
 
@@ -57,7 +58,6 @@ class HeuristicMapper(BaseMapper):
                     current_score = new_score
                     improved = True
                     local_search_count = 0
-                    logger.debug(f"Improved mapping found. Score: {current_score}")
                 else:
                     local_search_count += 1
                     local_mapping = self.local_search(
@@ -68,23 +68,16 @@ class HeuristicMapper(BaseMapper):
                         current_mapping = local_mapping
                         current_score = local_score
                         improved = True
-                        logger.debug(
-                            f"Local search improved mapping. Score: {current_score}"
-                        )
                     else:
                         local_search_count += 1
 
             if current_score < best_score:
                 best_mapping = current_mapping
                 best_score = current_score
-                logger.info(f"New best mapping found. Score: {best_score}")
 
         if best_mapping is None:
             raise DqcMapException("Failed to find a valid mapping")
 
-        logger.info(f"Final mapping found. Score: {best_score}")
-
-        # print(f"Final mapping found. Score: {best_score}")
         return best_mapping
 
     def local_search(
@@ -126,6 +119,8 @@ class HeuristicMapper(BaseMapper):
         for q, pq in enumerate(mapping):
             ctrl_to_logical[self.get_controller(pq)].add(q)
 
+        self.initialize_gain_caches(mapping, unmoved, ctrl_to_logical)
+
         all_moves = []
         gains = []
 
@@ -135,12 +130,15 @@ class HeuristicMapper(BaseMapper):
                 break
 
             qubit, new_pq, exchange_qubit = best_move
-            gain = self.calculate_move_gain(mapping, qubit, new_pq, exchange_qubit)
+            gain = self.calculate_total_gain(mapping, qubit, new_pq, exchange_qubit)
 
             all_moves.append((qubit, mapping[qubit], new_pq, exchange_qubit))
             gains.append(gain)
 
             self.apply_move(mapping, qubit, new_pq, exchange_qubit, ctrl_to_logical)
+            self.update_gain_caches(
+                mapping, qubit, exchange_qubit, unmoved, ctrl_to_logical
+            )
             unmoved.remove(qubit)
             if exchange_qubit is not None:
                 unmoved.remove(exchange_qubit)
@@ -166,44 +164,104 @@ class HeuristicMapper(BaseMapper):
         else:
             return initial_mapping
 
-    def find_best_move(
-        self, mapping: List[int], unmoved: set, ctrl_to_logical: Dict[int, set]
-    ) -> Tuple[int, int, int]:
-        best_gain = float("-inf")
-        best_move = None
-
+    def initialize_gain_caches(
+        self,
+        mapping: List[int],
+        unmoved: Set[int],
+        ctrl_to_logical: Dict[int, Set[int]],
+    ):
         for qubit in unmoved:
             current_ctrl = self.get_controller(mapping[qubit])
             for target_ctrl in range(self.n_controllers):
-                if target_ctrl == current_ctrl:
-                    continue
+                if target_ctrl != current_ctrl:
+                    self.move_gain_cache[
+                        (qubit, target_ctrl)
+                    ] = self.calculate_move_gain(mapping, qubit, target_ctrl)
+                    for other_qubit in ctrl_to_logical[target_ctrl]:
+                        if other_qubit in unmoved:
+                            self.swap_gain_cache[
+                                (qubit, other_qubit)
+                            ] = self.calculate_swap_gain(mapping, qubit, other_qubit)
 
+    def update_gain_caches(
+        self,
+        mapping: List[int],
+        moved_qubit: int,
+        exchange_qubit: int,
+        unmoved: Set[int],
+        ctrl_to_logical: Dict[int, Set[int]],
+    ):
+        affected_qubits = set(self.graph[moved_qubit])
+        if exchange_qubit is not None:
+            affected_qubits.update(self.graph[exchange_qubit])
+        affected_qubits &= unmoved
+
+        for qubit in affected_qubits:
+            current_ctrl = self.get_controller(mapping[qubit])
+            for target_ctrl in range(self.n_controllers):
+                if target_ctrl != current_ctrl:
+                    self.move_gain_cache[
+                        (qubit, target_ctrl)
+                    ] = self.calculate_move_gain(mapping, qubit, target_ctrl)
+                    for other_qubit in ctrl_to_logical[target_ctrl]:
+                        if other_qubit in unmoved:
+                            self.swap_gain_cache[
+                                (qubit, other_qubit)
+                            ] = self.calculate_swap_gain(mapping, qubit, other_qubit)
+                            self.swap_gain_cache[
+                                (other_qubit, qubit)
+                            ] = self.swap_gain_cache[(qubit, other_qubit)]
+
+    def find_best_move(
+        self,
+        mapping: List[int],
+        unmoved: Set[int],
+        ctrl_to_logical: Dict[int, Set[int]],
+    ) -> Tuple[int, int, int]:
+        best_move_gain = float("-inf")
+        best_move = None
+        best_swap_gain = float("-inf")
+        best_swap = None
+
+        for qubit in unmoved:
+            current_ctrl = self.get_controller(mapping[qubit])
+
+            target_ctrl, move_gain = max(
+                (
+                    (ctrl, self.move_gain_cache[(qubit, ctrl)])
+                    for ctrl in range(self.n_controllers)
+                    if ctrl != current_ctrl
+                ),
+                key=lambda x: x[1],
+            )
+
+            if move_gain > best_move_gain:
                 available_pq = self.find_available_physical_qubit(
                     target_ctrl, set(mapping)
                 )
                 if available_pq is not None:
-                    gain = self.calculate_move_gain(mapping, qubit, available_pq, None)
-                    if gain > best_gain:
-                        best_gain = gain
-                        best_move = (qubit, available_pq, None)
+                    best_move_gain = move_gain
+                    best_move = (qubit, available_pq, None)
 
-                for other_qubit in ctrl_to_logical[target_ctrl]:
-                    if other_qubit in unmoved:
-                        exchange_gain = self.calculate_move_gain(
-                            mapping, qubit, mapping[other_qubit], other_qubit
-                        )
-                        if exchange_gain > best_gain:
-                            best_gain = exchange_gain
-                            best_move = (qubit, mapping[other_qubit], other_qubit)
+            best_qubit_swap = max(
+                (
+                    (other_qubit, self.swap_gain_cache[(qubit, other_qubit)])
+                    for ctrl in range(self.n_controllers)
+                    for other_qubit in ctrl_to_logical[ctrl]
+                    if other_qubit in unmoved and ctrl != current_ctrl
+                ),
+                key=lambda x: x[1],
+                default=(None, float("-inf")),
+            )
 
-        return best_move
+            if best_qubit_swap[1] > best_swap_gain:
+                best_swap_gain = best_qubit_swap[1]
+                best_swap = (qubit, mapping[best_qubit_swap[0]], best_qubit_swap[0])
 
-    def calculate_move_gain(
-        self, mapping: List[int], qubit: int, new_pq: int, exchange_qubit: int
-    ) -> int:
-        old_pq = mapping[qubit]
-        old_ctrl = self.get_controller(old_pq)
-        new_ctrl = self.get_controller(new_pq)
+        return best_move if best_move_gain >= best_swap_gain else best_swap
+
+    def calculate_move_gain(self, mapping: List[int], qubit: int, new_ctrl: int) -> int:
+        old_ctrl = self.get_controller(mapping[qubit])
 
         gain = 0
         for neighbor in self.graph[qubit]:
@@ -213,18 +271,42 @@ class HeuristicMapper(BaseMapper):
             elif neighbor_ctrl == old_ctrl:
                 gain -= 1
 
-        if exchange_qubit is not None:
-            for neighbor in self.graph[exchange_qubit]:
-                neighbor_ctrl = self.get_controller(mapping[neighbor])
-                if neighbor_ctrl == old_ctrl:
-                    if neighbor == qubit:
-                        gain -= 1
-                    else:
-                        gain += 1
-                elif neighbor_ctrl == new_ctrl:
-                    gain -= 1
+        return gain
+
+    def calculate_swap_gain(self, mapping: List[int], qubit1: int, qubit2: int) -> int:
+        ctrl1 = self.get_controller(mapping[qubit1])
+        ctrl2 = self.get_controller(mapping[qubit2])
+
+        gain = 0
+
+        for neighbor in self.graph[qubit1]:
+            neighbor_ctrl = self.get_controller(mapping[neighbor])
+            if neighbor_ctrl == ctrl2:
+                gain += 1
+            elif neighbor_ctrl == ctrl1:
+                gain -= 1
+
+        for neighbor in self.graph[qubit2]:
+            neighbor_ctrl = self.get_controller(mapping[neighbor])
+            if neighbor_ctrl == ctrl1:
+                gain += 1
+            elif neighbor_ctrl == ctrl2:
+                gain -= 1
+
+        for neighbor in self.graph[qubit1]:
+            if neighbor == qubit2:
+                gain -= 2
 
         return gain
+
+    def calculate_total_gain(
+        self, mapping: List[int], qubit: int, new_pq: int, exchange_qubit: int
+    ) -> int:
+        new_ctrl = self.get_controller(new_pq)
+        if exchange_qubit is None:
+            return self.move_gain_cache[(qubit, new_ctrl)]
+        else:
+            return self.swap_gain_cache[(qubit, exchange_qubit)]
 
     def apply_move(
         self,
@@ -232,7 +314,7 @@ class HeuristicMapper(BaseMapper):
         qubit: int,
         new_pq: int,
         exchange_qubit: int,
-        ctrl_to_logical: Dict[int, set],
+        ctrl_to_logical: Dict[int, Set[int]],
     ):
         old_pq = mapping[qubit]
         old_ctrl = self.get_controller(old_pq)
@@ -247,7 +329,7 @@ class HeuristicMapper(BaseMapper):
             ctrl_to_logical[new_ctrl].remove(exchange_qubit)
             ctrl_to_logical[old_ctrl].add(exchange_qubit)
 
-    def find_available_physical_qubit(self, ctrl: int, used_pqs: set) -> int:
+    def find_available_physical_qubit(self, ctrl: int, used_pqs: Set[int]) -> int:
         available_pqs = set(self.ctrl_to_pq[ctrl]) - used_pqs
         return random.choice(list(available_pqs)) if available_pqs else None
 
