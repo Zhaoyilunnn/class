@@ -19,8 +19,8 @@ class HeuristicMapper(BaseMapper):
     Introduce a caching mechanism in the find_best_move and calculate_move_gain methods to reduce redundant calculations.
     """
 
-    def __init__(self, circ_prop: CircProperty, ctrl_conf: ControllerConfig):
-        super().__init__(circ_prop, ctrl_conf)
+    def __init__(self, ctrl_conf: ControllerConfig, circ_prop: CircProperty):
+        super().__init__(ctrl_conf, circ_prop)
         self.ctrl_to_pq = self._ctrl_conf.ctrl_to_pq
         self.cif_pairs = self._circ_prop.cif_pairs
         self.n_logical = self._circ_prop.num_qubits
