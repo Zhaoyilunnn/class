@@ -78,7 +78,7 @@ class TestCmHelper:
         cm = dev.configuration().coupling_map
 
         # Get subgraph list
-        sg_lst, _ = CmHelper.gen_random_connected_regions(cm, 5, save_fig=True)
+        sg_lst, _ = CmHelper.gen_random_connected_regions(cm, 5, save_fig=False)
 
         for sg in sg_lst:
             assert rx.is_connected(sg)

@@ -79,29 +79,13 @@ def get_backend_dt(backend: Backend) -> float:
     return dt
 
 
-def get_synthetic_dqc(
+def _gen_dqc_basic(
     num_qubits: int,
     num_layers: Optional[int] = None,
     gate_set: Optional[Set[Any]] = None,
     cond_ratio: float = 0.5,
-    use_qiskit: bool = True,
     seed: int = 1900,
-) -> QuantumCircuit:
-    """Generate a random dynamic quantum circuit based on specified configurations,
-    In each step, we choose either to add a cif pair or add a cnot gate based on ``cond_ratio``
-
-    Args:
-        num_qubits (int): number of qubits.
-        num_layers (int): number of layers
-        cond_ratio (float): probability of generating a conditional layer.
-        use_qiskit (bool): whether to use qiskit builtin ``random_circuit`` method.
-    """
-
-    if use_qiskit:
-        return random_circuit(
-            num_qubits, depth=num_layers, max_operands=2, conditional=True
-        )
-
+):
     random.seed(seed)
     qc = QuantumCircuit(num_qubits, num_qubits)
     n_layers = num_qubits if num_layers is None else num_layers
@@ -126,7 +110,7 @@ def get_synthetic_dqc(
             if prob < cond_ratio:
                 qc.measure(measure_idxes[l][n], measure_idxes[l][n])
                 cond_cbit = qc.clbits[measure_idxes[l][n]]
-                qc.h(apply_qubits[l][n]).c_if(cond_cbit, measure_idxes[l][n])
+                qc.h(apply_qubits[l][n]).c_if(cond_cbit, 1)
             else:
                 if control_qubits[l][n] != target_qubits[l][n]:
                     logger.debug(
@@ -135,6 +119,257 @@ def get_synthetic_dqc(
                     qc.cx(control_qubits[l][n], target_qubits[l][n])
 
     return qc
+
+
+def _apply_clifford(qc: QuantumCircuit, qubits: List[int], seed: int = 1900):
+    """
+    Randomly apply N gates from clifford group to given qubits.
+
+    Args:
+        qc (QuantumCircuit): the given quantum circuit.
+        seed: random seed
+    """
+    if len(qubits) >= 2:
+        flag_cnot = True
+    flag_cnot = False
+
+    gate_set = ["CNOT", "H", "S"]
+    for d in qubits:
+        g = random.choice(gate_set)
+        if g == "CNOT" and flag_cnot:
+            targ_lst = [q for q in qubits if q != d]
+            t = random.choice(targ_lst)
+            qc.cx(d, t)
+        elif g == "H":
+            qc.h(d)
+        elif g == "S":
+            qc.s(d)
+
+
+def _apply_i_c0(qc: QuantumCircuit, qubits: List[int]):
+    """
+    Apply the I_c1 block to given quantum circuit
+
+    Args:
+        qc (QuantumCircuit): The quantum circuit.
+        qubits: List of qubit indices to operate on. Say we have N qubits, then the first (N-1)
+            are considered as data qubits and the last one is considered as measure qubit.
+    """
+    assert qc.num_qubits >= len(qubits) and qc.num_clbits >= len(qubits)
+
+    measure_qid = qubits[-1]
+    data_qid_lst = qubits[:-1]
+
+    qc.measure(measure_qid, measure_qid)
+    cond_cbit = qc.clbits[measure_qid]
+    qc.x(measure_qid).c_if(cond_cbit, 1)
+    for d in data_qid_lst:
+        qc.id(d).c_if(cond_cbit, 1)
+
+
+def _apply_i_c1(qc: QuantumCircuit, qubits: List[int]):
+    """
+    Apply the I_c1 block to given quantum circuit
+
+    Args:
+        qc (QuantumCircuit): The quantum circuit.
+        qubits: List of qubit indices to operate on. Say we have N qubits, then the first (N-1)
+            are considered as data qubits and the last one is considered as measure qubit.
+    """
+    assert qc.num_qubits >= len(qubits) and qc.num_clbits >= len(qubits)
+
+    measure_qid = qubits[-1]
+    data_qid_lst = qubits[:-1]
+
+    qc.x(measure_qid)
+
+    qc.measure(measure_qid, measure_qid)
+    cond_cbit = qc.clbits[measure_qid]
+    qc.x(measure_qid).c_if(cond_cbit, 1)
+    for d in data_qid_lst:
+        qc.id(d).c_if(cond_cbit, 1)
+
+
+def _apply_z_c0(qc: QuantumCircuit, qubits: List[int]):
+    """
+    Apply the Z_c0 block to given quantum circuit
+
+    Args:
+        qc (QuantumCircuit): The quantum circuit.
+        qubits: List of qubit indices to operate on. Say we have N qubits, then the first (N-1)
+            are considered as data qubits and the last one is considered as measure qubit.
+    """
+    assert qc.num_qubits >= len(qubits) and qc.num_clbits >= len(qubits)
+
+    measure_qid = qubits[-1]
+    data_qid_lst = qubits[:-1]
+
+    qc.measure(measure_qid, measure_qid)
+    cond_cbit = qc.clbits[measure_qid]
+    qc.x(measure_qid).c_if(cond_cbit, 1)
+    for d in data_qid_lst:
+        qc.z(d).c_if(cond_cbit, 1)
+
+
+def _apply_z_c1(qc: QuantumCircuit, qubits: List[int]):
+    """
+    Apply the Z_c1 block to given quantum circuit
+
+    Args:
+        qc (QuantumCircuit): The quantum circuit.
+        qubits: List of qubit indices to operate on. Say we have N qubits, then the first (N-1)
+            are considered as data qubits and the last one is considered as measure qubit.
+    """
+    assert qc.num_qubits >= len(qubits) and qc.num_clbits >= len(qubits)
+
+    measure_qid = qubits[-1]
+    data_qid_lst = qubits[:-1]
+
+    qc.x(measure_qid)
+    for d in data_qid_lst:
+        qc.z(measure_qid)
+
+    qc.measure(measure_qid, measure_qid)
+    cond_cbit = qc.clbits[measure_qid]
+    qc.x(measure_qid).c_if(cond_cbit, 1)
+    for d in data_qid_lst:
+        qc.z(d).c_if(cond_cbit, 1)
+
+
+def _apply_h_cnot(qc: QuantumCircuit, qubits: List[int]):
+    """
+    Apply the H_CNOT block to given quantum circuit
+
+    Args:
+        qc (QuantumCircuit): The quantum circuit.
+        qubits: List of qubit indices to operate on. Say we have N qubits, then the first (N-1)
+            are considered as data qubits and the last one is considered as measure qubit.
+    """
+    assert qc.num_qubits >= len(qubits) and qc.num_clbits >= len(qubits)
+
+    measure_qid = qubits[-1]
+    data_qid_lst = qubits[:-1]
+
+    qc.h(measure_qid)
+    for d in data_qid_lst:
+        qc.cx(measure_qid, d)
+
+    qc.measure(measure_qid, measure_qid)
+    cond_cbit = qc.clbits[measure_qid]
+    qc.x(measure_qid).c_if(cond_cbit, 1)
+    for d in data_qid_lst:
+        qc.x(d).c_if(cond_cbit, 1)
+
+
+def _gen_dqc_rb(
+    num_qubits: int,
+    num_layers: Optional[int] = None,
+    gate_set: Optional[Set[Any]] = None,
+    cond_ratio: float = 0.5,
+    seed: int = 1900,
+):
+    """
+    Generate dynamic quantum circuit based on randomized benchmarking
+
+    Reference:
+        http://arxiv.org/abs/2408.07677, Fig. 1(b)
+    """
+    block_name_lst = ["H_CNOT", "Z_c1", "Z_c0", "I_c1", "I_c0"]
+    random.seed(seed)
+
+    def randomly_split_list(lst):
+        random.shuffle(lst)
+        result = []
+        index = 0
+
+        while index < len(lst):
+            if len(lst) - (index) == 1:
+                result[-1].extend(lst[index:])
+                break
+
+            size = random.randint(2, len(lst) - index)
+            result.append(lst[index : index + size])
+            index += size
+
+        return result
+
+    qc = QuantumCircuit(num_qubits, num_qubits)
+    n_layers = num_qubits if num_layers is None else num_layers
+
+    for _ in range(n_layers):
+        qubits = list(range(num_qubits))
+        random.shuffle(qubits)
+
+        qgroup_lst = randomly_split_list(qubits)
+
+        for grp in qgroup_lst:
+            # flag = random.choice([0, 1])
+            # FIXME: currently we only apply F blocks
+            flag = 0
+            if flag:
+                logger.debug(f"Applying clifford block to qubits {grp}")
+                _apply_clifford(qc, grp[:-1])
+            else:
+                f_name = random.choice(block_name_lst)
+                logger.debug(
+                    f"Applying dynamic circuit block: {f_name} to qubits {grp}"
+                )
+                if f_name == "H_CNOT":
+                    _apply_h_cnot(qc, grp)
+                elif f_name == "Z_c1":
+                    _apply_z_c1(qc, grp)
+                elif f_name == "Z_c0":
+                    _apply_z_c0(qc, grp)
+                elif f_name == "I_c1":
+                    _apply_i_c1(qc, grp)
+                elif f_name == "I_c0":
+                    _apply_i_c0(qc, grp)
+
+    return qc
+
+
+def get_synthetic_dqc(
+    num_qubits: int,
+    num_layers: Optional[int] = None,
+    gate_set: Optional[Set[Any]] = None,
+    cond_ratio: float = 0.5,
+    use_qiskit: bool = True,
+    seed: int = 1900,
+    use_rb: bool = True,
+) -> QuantumCircuit:
+    """Generate a random dynamic quantum circuit based on specified configurations,
+    In each step, we choose either to add a cif pair or add a cnot gate based on ``cond_ratio``
+
+    Args:
+        num_qubits (int): number of qubits.
+        num_layers (int): number of layers
+        cond_ratio (float): probability of generating a conditional layer.
+        use_qiskit (bool): whether to use qiskit builtin ``random_circuit`` method.
+        seed (int): random seed for reproducibility.
+        use_rb (bool): whether to generate circuit based on arXiv:2408.07677
+    """
+
+    if use_qiskit:
+        return random_circuit(
+            num_qubits, depth=num_layers, max_operands=2, conditional=True
+        )
+
+    if use_rb:
+        return _gen_dqc_rb(
+            num_qubits,
+            num_layers=num_layers,
+            gate_set=gate_set,
+            cond_ratio=cond_ratio,
+            seed=seed,
+        )
+
+    return _gen_dqc_basic(
+        num_qubits,
+        num_layers=num_layers,
+        gate_set=gate_set,
+        cond_ratio=cond_ratio,
+        seed=seed,
+    )
 
 
 def check_swap_needed(qc: QuantumCircuit, layout: Layout, cm: List[List[int]]) -> bool:
