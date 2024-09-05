@@ -1,16 +1,16 @@
 from qiskit import QuantumCircuit
 
-from dqcmap.utils.misc import get_cif_qubit_pairs
+from dqcmap.utils.misc import get_cif_qubit_pairs, get_multi_op_list
 
 
 class CircProperty:
-
     """Extracted characteristics of given quantum circuit"""
 
     def __init__(self, qc: QuantumCircuit):
         self._cif_pairs = None
         self._qc = qc
         self._num_qubits = qc.num_qubits
+        self._multi_op_list = None
 
     @property
     def cif_pairs(self):
@@ -22,3 +22,9 @@ class CircProperty:
     @property
     def num_qubits(self):
         return self._num_qubits
+
+    @property
+    def multi_op_list(self):
+        if not self._multi_op_list:
+            self._multi_op_list = get_multi_op_list(self._qc)
+        return self._multi_op_list

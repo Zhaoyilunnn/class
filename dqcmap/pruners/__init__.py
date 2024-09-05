@@ -1,6 +1,7 @@
 from typing import List
 
 from dqcmap.basepruner import BasePruner
+from dqcmap.pruners.mapping_aware import MappingAwarePruner
 
 from .trivial_pruner import TrivialPruner
 from .trivial_pruner_v2 import TrivialPrunerV2
@@ -8,6 +9,7 @@ from .trivial_pruner_v2 import TrivialPrunerV2
 PRUNERS = {
     "trivial": TrivialPruner,
     "trivial_v2": TrivialPrunerV2,
+    "map_aware": MappingAwarePruner,
 }
 
 

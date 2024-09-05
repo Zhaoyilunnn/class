@@ -7,6 +7,7 @@ from qiskit.transpiler.coupling import CouplingMap
 
 from dqcmap.basepruner import BasePruner
 from dqcmap.exceptions import DqcMapException
+from dqcmap.utils.cm import CmHelper
 
 logger = logging.getLogger(__name__)
 
@@ -62,13 +63,15 @@ class MappingAwarePruner(BasePruner):
             pq2lq[pq] = lq
 
         scores = []
-        for e in self._edges:
+        sd_edges = CmHelper.to_single_direct(self._edges)
+        for e in sd_edges:
             score = 0
-            lq0 = pq2lq[e[0]]
-            lq1 = pq2lq[e[1]]
-            for op in multi_op_list:
-                if lq0 in op and lq1 in op:
-                    score += 1
+            if e[0] in pq2lq and e[1] in pq2lq:
+                lq0 = pq2lq[e[0]]
+                lq1 = pq2lq[e[1]]
+                for op in multi_op_list:
+                    if lq0 in op and lq1 in op:
+                        score += 1
             scores.append((e, score))
         return scores
 
@@ -77,7 +80,7 @@ class MappingAwarePruner(BasePruner):
         Just randomly remove some connections between different subgraphs,
         note that we should keep the coupling map connected
         """
-        num_pruned = int(len(self._edges) * self._prob)
+        num_pruned = int(len(self._scores) * self._prob)
 
         if num_pruned == 0:
             logger.warning(
@@ -85,7 +88,7 @@ class MappingAwarePruner(BasePruner):
             )
 
         # sort edges based on edge score
-        num_candidate = int(len(self._edges) * 2 * self._prob)
+        num_candidate = int(len(self._scores) * 2 * self._prob)
         self._scores.sort(key=lambda item: item[1])
         candidate_edges = [self._scores[i][0] for i in range(num_candidate)]
 

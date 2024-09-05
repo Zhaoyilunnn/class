@@ -174,6 +174,7 @@ def gen_qc(num_qc, num_qubits, depth, cond_ratio, use_qiskit, seed_base=1900):
             depth,
             cond_ratio=cond_ratio,
             use_qiskit=use_qiskit,
+            use_rb=False,
             seed=seed_base + idx,
         )
         qc_lst.append(qc)
@@ -248,42 +249,39 @@ def run_circuit(
     layout_method,
     name,
 ):
-    try:
-        debug_qc(qc)
-        compiler = COMPILERS[name](conf)
+    debug_qc(qc)
+    compiler = COMPILERS[name](conf)
 
-        tqc = compiler.run(
-            qc,
-            backend=dev,
-            layout_method=layout_method,
-            seed_transpiler=seed,
-            opt_level=ARGS.opt,
-        )
-        layout = tqc.layout
-        final_layout = layout.final_virtual_layout(filter_ancillas=True)
-        logger = logging.getLogger(__name__)
-        logger.debug(f"final layout: \n{final_layout}")
-        swap_needed = check_swap_needed(qc, final_layout, cm)
+    tqc = compiler.run(
+        qc,
+        backend=dev,
+        layout_method=layout_method,
+        seed_transpiler=seed,
+        opt_level=ARGS.opt,
+    )
+    layout = tqc.layout
+    final_layout = layout.final_virtual_layout(filter_ancillas=True)
+    logger = logging.getLogger(__name__)
+    logger.debug(f"final layout: \n{final_layout}")
+    swap_needed = check_swap_needed(qc, final_layout, cm)
 
-        total_latency = evaluator(tqc, dev)
-        gate_latency = evaluator.gate_latency
-        ctrl_latency = evaluator.ctrl_latency
-        inner = evaluator.inner_latency
-        inter = evaluator.inter_latency
+    total_latency = evaluator(tqc, dev)
+    gate_latency = evaluator.gate_latency
+    ctrl_latency = evaluator.ctrl_latency
+    inner = evaluator.inner_latency
+    inter = evaluator.inter_latency
 
-        perc_inter = inter / total_latency
-        num_op = len(tqc.data)
-        depth = tqc.depth()
-        # return perc_inter, total_latency, num_op
-        return Result(
-            compiler_method=name,
-            runtime=total_latency,
-            perc_inter=perc_inter,
-            num_ops=num_op,
-            depth=depth,
-        )
-    except Exception as e:
-        return e
+    perc_inter = inter / total_latency
+    num_op = len(tqc.data)
+    depth = tqc.depth()
+    # return perc_inter, total_latency, num_op
+    return Result(
+        compiler_method=name,
+        runtime=total_latency,
+        perc_inter=perc_inter,
+        num_ops=num_op,
+        depth=depth,
+    )
 
 
 def main():

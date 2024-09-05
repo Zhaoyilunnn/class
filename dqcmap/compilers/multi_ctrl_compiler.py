@@ -59,14 +59,28 @@ class MultiCtrlCompiler(BaseCompiler):
         elif opt_level == 3:
             # 1. mapping
             circ_prop = CircProperty(qc)
-            initial_layout = mapping(self._conf, circ_prop, mapper_name="kl_partition")
+            # initial_layout = mapping(self._conf, circ_prop, mapper_name="kl_partition")
+            initial_layout = mapping(self._conf, circ_prop, mapper_name="heuristic")
         elif opt_level == 4:
             # 1. mapping
             circ_prop = CircProperty(qc)
             initial_layout = mapping(self._conf, circ_prop, mapper_name="heuristic")
             # 2. pruning
             coupling_map = virtual_prune(
-                cm, self._sg_nodes_lst, pruning_method="trivial_v2", prob=0.5
+                cm, self._sg_nodes_lst, pruning_method="trivial_v2", prob=0.1
+            )
+        elif opt_level == 5:
+            # 1. mapping
+            circ_prop = CircProperty(qc)
+            initial_layout = mapping(self._conf, circ_prop, mapper_name="heuristic")
+            # 2. pruning
+            coupling_map = virtual_prune(
+                cm,
+                self._sg_nodes_lst,
+                pruning_method="map_aware",
+                prob=0.1,
+                mapping=initial_layout,
+                multi_op_list=circ_prop.multi_op_list,
             )
         else:
             raise NotImplementedError(f"Unsupported optimization level {opt_level}")
