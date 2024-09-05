@@ -16,6 +16,30 @@ from qiskit_ibm_runtime.ibm_backend import IBMBackend
 logger = logging.getLogger(__name__)
 
 
+def get_multi_op_list(qc: QuantumCircuit):
+    """
+    Find and return all operations in a quantum circuit that applies on multiple qubits
+
+    Returns:
+        A list of multi-qubit operations. Each op is represented as a list of qubit indices it applies to.
+    """
+
+    logger.debug(f"Looking for multi-qubit operations in the quantum circuit")
+
+    res = []
+    for val in qc.data:
+        op = []
+        if isinstance(val, CircuitInstruction):
+            operation, qargs = val.operation, val.qubits
+            if len(qargs) >= 2 and not (
+                hasattr(operation, "condition") and operation.condition is not None
+            ):
+                for q in qargs:
+                    op.append(q._index)
+                res.append(op)
+    return res
+
+
 def get_cif_qubit_pairs(qc: QuantumCircuit):
     """Return all qubit pairs in all cif operations
 

@@ -9,7 +9,21 @@ from qiskit.providers.models import BackendProperties
 
 from dqcmap.utils import get_cif_qubit_pairs
 from dqcmap.utils.cm import CmHelper
-from dqcmap.utils.misc import update_backend_cx_time, update_backend_cx_time_v2
+from dqcmap.utils.misc import (
+    get_multi_op_list,
+    update_backend_cx_time,
+    update_backend_cx_time_v2,
+)
+
+
+def test_get_multi_op_list():
+    qc = QuantumCircuit(2, 2)
+    qc.h(0)
+    qc.measure(0, 0)
+    qc.cx(0, 1)
+    qc.h(1).c_if(0, 0)
+    res = get_multi_op_list(qc)
+    assert res == [[0, 1]]
 
 
 def test_get_cif_qubit_pairs():
