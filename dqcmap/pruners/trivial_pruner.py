@@ -15,7 +15,7 @@ class TrivialPruner(BasePruner):
     def __init__(self, sg_nodes_lst, coupling_map, prob: float = 0.5, seed: int = 1900):
         super().__init__(sg_nodes_lst, coupling_map)
 
-        if not prob >= 0 and prob < 1:
+        if not (prob >= 0 and prob < 1):
             raise ValueError(f"Pruning probability should be in [0, 1)")
         self._prob = prob
         self._base_seed = seed

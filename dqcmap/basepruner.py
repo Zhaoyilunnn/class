@@ -7,7 +7,8 @@ class BasePruner(ABC):
         """Initialization of a pruner
 
         Args:
-            sg_nodes_lst: List of subgraph node lists.
+            sg_nodes_lst: List of subgraph node lists, a subgraph means physical qubits
+                within this subgraph are controlled by the same controller.
             coupling_map: coupling map in couplinglist format.
         """
         self._cm = coupling_map

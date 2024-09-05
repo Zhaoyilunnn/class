@@ -44,7 +44,7 @@ class TrivialPrunerV2(TrivialPruner):
                 if reverse in cm_lst:
                     cm_lst.remove(reverse)
 
-            # return the result with minimum disconnected parts
+            # Got a pruned cm, return it if it is still connected
             cm = CouplingMap(cm_lst)
 
             if cm.is_connected():
