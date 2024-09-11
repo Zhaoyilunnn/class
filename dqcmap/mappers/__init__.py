@@ -7,11 +7,13 @@ from dqcmap.controller import ControllerConfig
 from .heuristic_graphpartition_mapper import HeuristicMapper
 from .iter_KL_mapper import KLMapper
 from .trivial_mapper import TrivialMapper
+from .two_step_mapper import TwoStepMapper
 
 MAPPERS = {
     "trivial": TrivialMapper,
     "heuristic": HeuristicMapper,
     "kl_partition": KLMapper,
+    "two_step": TwoStepMapper,
 }
 
 
