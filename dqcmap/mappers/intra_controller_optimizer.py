@@ -1,11 +1,13 @@
 import random
 from collections import defaultdict
-from typing import List, Dict, Set, Tuple
+from typing import Dict, List, Set, Tuple
+
 import networkx as nx
 
+from dqcmap.basemapper import BaseMapper
 from dqcmap.circuit_prop import CircProperty
 from dqcmap.controller import ControllerConfig
-from dqcmap.basemapper import BaseMapper
+
 
 class IntraControllerOptimizer(BaseMapper):
     def __init__(self, ctrl_conf: ControllerConfig, circ_prop: CircProperty):
@@ -15,7 +17,9 @@ class IntraControllerOptimizer(BaseMapper):
         self.ctrl_to_pq = self._ctrl_conf.ctrl_to_pq
         self.n_logical = self._circ_prop.num_qubits
         self.n_controllers = len(self.ctrl_to_pq)
-        self.all_physical_qubits = [pq for pqs in self.ctrl_to_pq.values() for pq in pqs]
+        self.all_physical_qubits = [
+            pq for pqs in self.ctrl_to_pq.values() for pq in pqs
+        ]
         self.graph = self.build_two_qubit_graph()
         self.coupling_map = self._ctrl_conf._cm
         self.cross_controller_edges = self.identify_cross_controller_edges()
@@ -48,10 +52,14 @@ class IntraControllerOptimizer(BaseMapper):
             graph[q2].add(q1)
         return graph
 
-    def count_cross_controller_gates(self, initial_mapping: List[int]) -> Dict[int, int]:
+    def count_cross_controller_gates(
+        self, initial_mapping: List[int]
+    ) -> Dict[int, int]:
         cross_gates = defaultdict(int)
         for q1, q2 in self.circ_prop.two_qubit_gates:
-            if self.get_controller(initial_mapping[q1]) != self.get_controller(initial_mapping[q2]):
+            if self.get_controller(initial_mapping[q1]) != self.get_controller(
+                initial_mapping[q2]
+            ):
                 cross_gates[q1] += 1
                 cross_gates[q2] += 1
         return cross_gates
@@ -61,17 +69,25 @@ class IntraControllerOptimizer(BaseMapper):
         ctrl_to_logical = self.get_ctrl_to_logical(initial_mapping)
         optimized_mapping = initial_mapping.copy()
         # optimized_mapping字典化，key为logical qubit，value为physical qubit
-        optimized_mapping_dict = {i: optimized_mapping[i] for i in range(self.n_logical)}
+        optimized_mapping_dict = {
+            i: optimized_mapping[i] for i in range(self.n_logical)
+        }
 
         for ctrl, logical_qubits in ctrl_to_logical.items():
             physical_qubits = self.ctrl_to_pq[ctrl]
             # print(f"Optimizing controller {ctrl}: logical_qubits={logical_qubits}, physical_qubits={physical_qubits}")
-            intra_mapping = self.optimize_controller(ctrl, logical_qubits, physical_qubits, optimized_mapping_dict)
+            intra_mapping = self.optimize_controller(
+                ctrl, logical_qubits, physical_qubits, optimized_mapping_dict
+            )
             optimized_mapping_dict.update(intra_mapping)
-            
+
         # Handle any unmapped qubits
-        unmapped_logical = set(range(self.n_logical)) - set(optimized_mapping_dict.keys())
-        available_physical = set(self.all_physical_qubits) - set(optimized_mapping_dict.values())
+        unmapped_logical = set(range(self.n_logical)) - set(
+            optimized_mapping_dict.keys()
+        )
+        available_physical = set(self.all_physical_qubits) - set(
+            optimized_mapping_dict.values()
+        )
 
         for logical in unmapped_logical:
             if available_physical:
@@ -94,18 +110,37 @@ class IntraControllerOptimizer(BaseMapper):
         return ctrl_to_logical
 
     # TODO: need to optimize the mapping for the controller
-    def optimize_controller(self, ctrl: int, logical_qubits: List[int], physical_qubits: List[int], optimized_mapping_dict: Dict[int, int]) -> Dict[int, int]:
+    def optimize_controller(
+        self,
+        ctrl: int,
+        logical_qubits: List[int],
+        physical_qubits: List[int],
+        optimized_mapping_dict: Dict[int, int],
+    ) -> Dict[int, int]:
         n_logical = len(logical_qubits)
         n_physical = len(physical_qubits)
-        
+
         # print(f"Optimizing controller {ctrl}: n_logical: {n_logical}, n_physical: {n_physical}")
-        
-        sorted_qubits = sorted(logical_qubits, key=lambda q: self.cross_controller_gates.get(q, 0), reverse=True)
-        edge_physical_qubits = [pq for pq in physical_qubits if pq in self.cross_controller_edges]
-        non_edge_physical_qubits = [pq for pq in physical_qubits if pq not in self.cross_controller_edges]
+
+        sorted_qubits = sorted(
+            logical_qubits,
+            key=lambda q: self.cross_controller_gates.get(q, 0),
+            reverse=True,
+        )
+        edge_physical_qubits = [
+            pq for pq in physical_qubits if pq in self.cross_controller_edges
+        ]
+        non_edge_physical_qubits = [
+            pq for pq in physical_qubits if pq not in self.cross_controller_edges
+        ]
         # 对non_edge_physical_qubits进行排序，排序的依据是与edge_physical_qubits距离的总和，距离越小，排序越靠前
-        non_edge_physical_qubits.sort(key=lambda pq: sum(self.shortest_paths.get((pq, edge_pq), 1000) for edge_pq in edge_physical_qubits))
-        
+        non_edge_physical_qubits.sort(
+            key=lambda pq: sum(
+                self.shortest_paths.get((pq, edge_pq), 1000)
+                for edge_pq in edge_physical_qubits
+            )
+        )
+
         initial_mapping = {}
         for q in sorted_qubits:
             if edge_physical_qubits:
@@ -114,20 +149,29 @@ class IntraControllerOptimizer(BaseMapper):
             elif non_edge_physical_qubits:
                 initial_mapping[q] = non_edge_physical_qubits.pop(0)
             else:
-                print(f"Error: Unable to map logical qubit {q}, physical qubits in the controller {ctrl} are not enough")
+                print(
+                    f"Error: Unable to map logical qubit {q}, physical qubits in the controller {ctrl} are not enough"
+                )
                 return initial_mapping
         best_mapping = initial_mapping
-        best_score = self.evaluate_intra_mapping(ctrl, best_mapping, optimized_mapping_dict)
+        best_score = self.evaluate_intra_mapping(
+            ctrl, best_mapping, optimized_mapping_dict
+        )
 
         for _ in range(1000):  # You can adjust the number of iterations
             current_mapping = best_mapping.copy()
-            
+
             if len(current_mapping) > 1:
                 q1, q2 = random.sample(list(current_mapping.keys()), 2)
-                current_mapping[q1], current_mapping[q2] = current_mapping[q2], current_mapping[q1]
-            
-            current_score = self.evaluate_intra_mapping(ctrl, current_mapping, optimized_mapping_dict)
-            
+                current_mapping[q1], current_mapping[q2] = (
+                    current_mapping[q2],
+                    current_mapping[q1],
+                )
+
+            current_score = self.evaluate_intra_mapping(
+                ctrl, current_mapping, optimized_mapping_dict
+            )
+
             if current_score < best_score:
                 best_mapping = current_mapping
                 best_score = current_score
@@ -135,11 +179,16 @@ class IntraControllerOptimizer(BaseMapper):
         # print(f"Optimized mapping for controller {ctrl}: {best_mapping}")
         return best_mapping
 
-    def evaluate_intra_mapping(self, ctrl: int, single_ctrl_mapping: Dict[int, int], optimized_mapping_dict: Dict[int, int]) -> float:
+    def evaluate_intra_mapping(
+        self,
+        ctrl: int,
+        single_ctrl_mapping: Dict[int, int],
+        optimized_mapping_dict: Dict[int, int],
+    ) -> float:
         score = 0
         mapping = optimized_mapping_dict.copy()
         mapping.update(single_ctrl_mapping.copy())
-        
+
         for q1, q2 in self.circ_prop.two_qubit_gates:
             if q1 in mapping and q2 in mapping:
                 p1 = mapping[q1]

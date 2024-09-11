@@ -4,8 +4,7 @@ from dqcmap.utils.misc import get_cif_qubit_pairs, get_multi_op_list
 
 
 class CircProperty:
-    """Extracted characteristics of given quantum circuit
-    """
+    """Extracted characteristics of given quantum circuit"""
 
     def __init__(self, qc: QuantumCircuit):
         self._cif_pairs = None
@@ -36,7 +35,7 @@ class CircProperty:
     def two_qubit_gates(self):
         """
         Get two-qubit gates qubits indices in the circuit.
-        
+
         Returns:
             A list of two-qubit gate pairs, where each pair contains two qubit indices.
 

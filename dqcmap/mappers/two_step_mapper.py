@@ -1,12 +1,12 @@
+from typing import Dict, List, Set, Tuple
+
+from dqcmap.basemapper import BaseMapper
+from dqcmap.circuit_prop import CircProperty
+from dqcmap.controller import ControllerConfig
 from dqcmap.mappers.heuristic_graphpartition_mapper import HeuristicMapper
 from dqcmap.mappers.intra_controller_optimizer import IntraControllerOptimizer
 from dqcmap.mappers.iter_KL_mapper import KLMapper
-from dqcmap.basemapper import BaseMapper
 
-from dqcmap.circuit_prop import CircProperty
-from dqcmap.controller import ControllerConfig
-
-from typing import Dict, List, Set, Tuple
 
 class TwoStepMapper(BaseMapper):
     def __init__(self, ctrl_conf: ControllerConfig, circ_prop: CircProperty):
