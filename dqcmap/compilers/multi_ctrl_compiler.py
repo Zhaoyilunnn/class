@@ -60,7 +60,8 @@ class MultiCtrlCompiler(BaseCompiler):
             # 1. mapping
             circ_prop = CircProperty(qc)
             # initial_layout = mapping(self._conf, circ_prop, mapper_name="kl_partition")
-            initial_layout = mapping(self._conf, circ_prop, mapper_name="heuristic")
+            # initial_layout = mapping(self._conf, circ_prop, mapper_name="heuristic")
+            initial_layout = mapping(self._conf, circ_prop, mapper_name="two_step")
         elif opt_level == 4:
             # 1. mapping
             circ_prop = CircProperty(qc)
