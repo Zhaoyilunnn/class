@@ -13,6 +13,7 @@ from qiskit.transpiler.preset_passmanagers import common
 from qiskit.transpiler.preset_passmanagers.plugin import PassManagerStagePlugin
 
 from .dm_layout import DqcMapLayout
+from .dm_swap import DqcMapSwap
 
 
 class DqcMapLayoutPlugin(PassManagerStagePlugin):
@@ -90,3 +91,91 @@ class DqcMapLayoutPlugin(PassManagerStagePlugin):
             ConditionalController(embed.to_flow_controller(), condition=_swap_mapped)
         )
         return layout
+
+
+class DqcMapRoutePlugin(PassManagerStagePlugin):
+    """Plugin class for routing stage with :class:`~.DqcMapSwap`"""
+
+    def pass_manager(self, pass_manager_config, optimization_level=None) -> PassManager:
+        """Build routing stage PassManager."""
+        seed_transpiler = pass_manager_config.seed_transpiler
+        target = pass_manager_config.target
+        coupling_map = pass_manager_config.coupling_map
+        coupling_map_routing = target
+        if coupling_map_routing is None:
+            coupling_map_routing = coupling_map
+        backend_properties = pass_manager_config.backend_properties
+        vf2_call_limit, vf2_max_trials = common.get_vf2_limits(
+            optimization_level,
+            pass_manager_config.layout_method,
+            pass_manager_config.initial_layout,
+        )
+        if optimization_level == 0:
+            routing_pass = DqcMapSwap(
+                coupling_map_routing,
+                heuristic="basic",
+                seed=seed_transpiler,
+                trials=5,
+            )
+            return common.generate_routing_passmanager(
+                routing_pass,
+                target,
+                coupling_map=coupling_map,
+                seed_transpiler=seed_transpiler,
+                use_barrier_before_measurement=True,
+            )
+        if optimization_level == 1:
+            routing_pass = DqcMapSwap(
+                coupling_map_routing,
+                heuristic="decay",
+                seed=seed_transpiler,
+                trials=5,
+            )
+            return common.generate_routing_passmanager(
+                routing_pass,
+                target,
+                coupling_map,
+                vf2_call_limit=vf2_call_limit,
+                vf2_max_trials=vf2_max_trials,
+                backend_properties=backend_properties,
+                seed_transpiler=seed_transpiler,
+                check_trivial=True,
+                use_barrier_before_measurement=True,
+            )
+        if optimization_level == 2:
+            routing_pass = DqcMapSwap(
+                coupling_map_routing,
+                heuristic="decay",
+                seed=seed_transpiler,
+                trials=10,
+            )
+            return common.generate_routing_passmanager(
+                routing_pass,
+                target,
+                coupling_map=coupling_map,
+                vf2_call_limit=vf2_call_limit,
+                vf2_max_trials=vf2_max_trials,
+                backend_properties=backend_properties,
+                seed_transpiler=seed_transpiler,
+                use_barrier_before_measurement=True,
+            )
+        if optimization_level == 3:
+            routing_pass = DqcMapSwap(
+                coupling_map_routing,
+                heuristic="decay",
+                seed=seed_transpiler,
+                trials=20,
+            )
+            return common.generate_routing_passmanager(
+                routing_pass,
+                target,
+                coupling_map=coupling_map,
+                vf2_call_limit=vf2_call_limit,
+                vf2_max_trials=vf2_max_trials,
+                backend_properties=backend_properties,
+                seed_transpiler=seed_transpiler,
+                use_barrier_before_measurement=True,
+            )
+        raise TranspilerError(
+            f"Invalid optimization level specified: {optimization_level}"
+        )
