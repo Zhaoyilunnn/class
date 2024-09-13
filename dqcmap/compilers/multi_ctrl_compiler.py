@@ -5,6 +5,7 @@ from dqcmap.basecompiler import BaseCompiler
 from dqcmap.circuit_prop import CircProperty
 from dqcmap.controller import ControllerConfig, MapStratety
 from dqcmap.mappers import mapping
+from dqcmap.passes.managers import generate_preset_pass_manager
 from dqcmap.pruners import virtual_prune
 
 
@@ -86,8 +87,8 @@ class MultiCtrlCompiler(BaseCompiler):
         else:
             raise NotImplementedError(f"Unsupported optimization level {opt_level}")
 
-        tqc = transpile(
-            qc,
+        pm = generate_preset_pass_manager(
+            optimization_level=1,
             backend=backend,
             initial_layout=initial_layout,
             coupling_map=coupling_map,
@@ -95,5 +96,7 @@ class MultiCtrlCompiler(BaseCompiler):
             routing_method=routing_method,
             seed_transpiler=seed_transpiler,
         )
+
+        tqc = pm.run(qc)
 
         return tqc

@@ -35,6 +35,7 @@ pub enum Heuristic {
     Basic,
     Lookahead,
     Decay,
+    DqcMap,
 }
 
 /// A container for Sabre mapping results.

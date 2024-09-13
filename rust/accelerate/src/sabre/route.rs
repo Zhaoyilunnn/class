@@ -359,6 +359,9 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                             + self.front_layer.score(swap, dist)
                             + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist))
                 }
+                Heuristic::DqcMap => {
+                    0.0
+                }
             };
             if score < min_score - BEST_EPSILON {
                 min_score = score;
@@ -558,7 +561,7 @@ pub fn swap_map_trial(
         }
         if routable_nodes.is_empty() {
             // If we exceeded the max number of heuristic-chosen swaps without making progress,
-            // unwind to the last progress point and greedily swap to bring a ndoe together.
+            // unwind to the last progress point and greedily swap to bring a node together.
             // Efficiency doesn't matter much; this path never gets taken unless we're unlucky.
             current_swaps
                 .drain(..)
