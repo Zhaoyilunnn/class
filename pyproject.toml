@@ -12,6 +12,7 @@ dependencies = [
     "qiskit-qasm3-import==0.5.0",
     "joblib==1.4.2",
     "z3-solver==4.13.0.0",
+    "networkx>=3.3",
 ]
 
 [tool.setuptools.packages.find]
@@ -20,6 +21,9 @@ include = ["dqcmap"]
 
 [project.entry-points."qiskit.transpiler.layout"]
 "dqcmap" = "dqcmap.passes.plugin:DqcMapLayoutPlugin"
+
+[project.entry-points."qiskit.transpiler.routing"]
+"dqcswap" = "dqcmap.passes.plugin:DqcMapRoutePlugin"
 
 [[tool.setuptools-rust.ext-modules]]
 # Private Rust extension module to be nested into the Python package
