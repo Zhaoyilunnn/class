@@ -62,6 +62,7 @@ modified by dqcmap
 """
 
 import warnings
+from typing import Optional
 
 from qiskit.transpiler import CouplingMap
 from qiskit.transpiler.passmanager_config import PassManagerConfig
@@ -73,8 +74,11 @@ from qiskit.transpiler.preset_passmanagers import (
 )
 from qiskit.transpiler.target import target_to_backend_properties
 
+from dqcmap.circuit_prop import CircProperty
+from dqcmap.controller import ControllerConfig
 
-def generate_preset_pass_manager(
+
+def generate_dqcmap_pass_manager(
     optimization_level,
     backend=None,
     target=None,
@@ -98,6 +102,8 @@ def generate_preset_pass_manager(
     optimization_method=None,
     *,
     _skip_target=False,
+    ctrl_conf: Optional[ControllerConfig] = None,
+    circ_prop: Optional[CircProperty] = None,
 ):
     """Generate a preset :class:`~.PassManager`
 
@@ -280,6 +286,14 @@ def generate_preset_pass_manager(
         pm_config = PassManagerConfig.from_backend(backend, **pm_options)
     else:
         pm_config = PassManagerConfig(**pm_options)
+
+    # Dynamically add dqcmap related attributes to pm_config here
+    # thus we do not need to modify `PassManagerConfig`
+    if ctrl_conf is not None:
+        setattr(pm_config, "ctrl_conf", ctrl_conf)
+    if circ_prop is not None:
+        setattr(pm_config, "circ_prop", circ_prop)
+
     if optimization_level == 0:
         pm = level_0_pass_manager(pm_config)
     elif optimization_level == 1:
@@ -298,5 +312,5 @@ __all__ = [
     "level_1_pass_manager",
     "level_2_pass_manager",
     "level_3_pass_manager",
-    "generate_preset_pass_manager",
+    "generate_dqcmap_pass_manager",
 ]

@@ -19,6 +19,7 @@ Modified by dqc-map
 import logging
 import time
 from copy import deepcopy
+from typing import Optional
 
 import rustworkx
 from qiskit.circuit import ClassicalRegister, Clbit, ControlFlowOp, SwitchCaseOp
@@ -36,6 +37,8 @@ from qiskit.utils.parallel import CPU_COUNT
 
 from dqcmap._accelerate.nlayout import NLayout
 from dqcmap._accelerate.sabre import Heuristic, NeighborTable, SabreDAG, sabre_routing
+from dqcmap.circuit_prop import CircProperty
+from dqcmap.controller import ControllerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +81,14 @@ class DqcMapSwap(TransformationPass):
     """
 
     def __init__(
-        self, coupling_map, heuristic="basic", seed=None, fake_run=False, trials=None
+        self,
+        coupling_map,
+        heuristic="basic",
+        seed=None,
+        fake_run=False,
+        trials=None,
+        ctrl_conf: Optional[ControllerConfig] = None,
+        circ_prop: Optional[CircProperty] = None,
     ):
         r"""DqcMapSwap initializer.
 
@@ -176,6 +186,11 @@ class DqcMapSwap(TransformationPass):
         self._qubit_indices = None
         self._clbit_indices = None
         self.dist_matrix = None
+
+        # dqcmap related attributes
+        self._ctrl_to_pq = ctrl_conf.ctrl_to_pq if ctrl_conf is not None else None
+
+        self._cif_pairs = circ_prop.cif_pairs if circ_prop is not None else None
 
     def run(self, dag):
         """Run the DqcMapSwap pass on `dag`.
