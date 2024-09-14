@@ -2,15 +2,12 @@ use hashbrown::HashMap;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
-
 #[pyclass]
 pub struct Ctrl2Pq {
     // mapping between controller id and the list of physical qubit indexes
     // this controller connects to
-
     map: HashMap<i32, Vec<i32>>,
 }
-
 
 #[pymethods]
 impl Ctrl2Pq {
@@ -30,6 +27,6 @@ impl Ctrl2Pq {
             map.insert(key, vec);
         }
 
-        Ok(Ctrl2Pq { map } )
+        Ok(Ctrl2Pq { map })
     }
 }

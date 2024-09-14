@@ -359,9 +359,7 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                             + self.front_layer.score(swap, dist)
                             + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist))
                 }
-                Heuristic::DqcMap => {
-                    0.0
-                }
+                Heuristic::DqcMap => 0.0,
             };
             if score < min_score - BEST_EPSILON {
                 min_score = score;

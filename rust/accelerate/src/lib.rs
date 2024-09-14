@@ -16,6 +16,7 @@ use pyo3::import_exception;
 
 pub mod convert_2q_block_matrix;
 pub mod dense_layout;
+pub mod dqcmap;
 pub mod edge_collections;
 pub mod error_map;
 pub mod euler_one_qubit_decomposer;
@@ -25,7 +26,6 @@ pub mod optimize_1q_gates;
 pub mod pauli_exp_val;
 pub mod results;
 pub mod sabre;
-pub mod dqcmap;
 pub mod sampled_exp_val;
 pub mod sparse_pauli_op;
 pub mod stochastic_swap;
