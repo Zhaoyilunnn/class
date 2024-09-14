@@ -25,6 +25,7 @@ pub mod optimize_1q_gates;
 pub mod pauli_exp_val;
 pub mod results;
 pub mod sabre;
+pub mod dqcmap;
 pub mod sampled_exp_val;
 pub mod sparse_pauli_op;
 pub mod stochastic_swap;
