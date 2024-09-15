@@ -28,6 +28,8 @@ use rustworkx_core::petgraph::visit::EdgeRef;
 use rustworkx_core::shortest_path::dijkstra;
 use rustworkx_core::token_swapper::token_swapper;
 
+use crate::dqcmap::cif_pairs::CifPairs;
+use crate::dqcmap::ctrl_to_pq::Ctrl2Pq;
 use crate::getenv_use_multiple_threads;
 use crate::nlayout::{NLayout, PhysicalQubit};
 
@@ -414,6 +416,8 @@ pub fn sabre_routing(
     num_trials: usize,
     seed: Option<u64>,
     run_in_parallel: Option<bool>,
+    cif_pairs: Option<&CifPairs>,
+    ctrl2pq: Option<&Ctrl2Pq>,
 ) -> (SwapMap, PyObject, NodeBlockResults, PyObject) {
     let target = RoutingTargetView {
         neighbors: neighbor_table,

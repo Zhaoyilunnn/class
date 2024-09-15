@@ -252,6 +252,11 @@ def run_circuit(
     debug_qc(qc)
     compiler = COMPILERS[name](conf)
 
+    if name == "baseline":
+        routing_method = "sabre"
+    else:
+        routing_method = "dqcswap"
+
     tqc = compiler.run(
         qc,
         backend=dev,

@@ -1,2 +1,2 @@
-mod cif_pairs;
-mod ctrl_to_pq;
+pub mod cif_pairs;
+pub mod ctrl_to_pq;
