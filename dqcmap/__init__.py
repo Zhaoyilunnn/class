@@ -28,6 +28,7 @@ sys.modules[
 sys.modules["dqcmap._accelerate.pauli_expval"] = dqcmap._accelerate.pauli_expval
 sys.modules["dqcmap._accelerate.results"] = dqcmap._accelerate.results
 sys.modules["dqcmap._accelerate.sabre"] = dqcmap._accelerate.sabre
+sys.modules["dqcmap._accelerate.dqcmap"] = dqcmap._accelerate.dqcmap
 sys.modules["dqcmap._accelerate.sampled_exp_val"] = dqcmap._accelerate.sampled_exp_val
 sys.modules["dqcmap._accelerate.sparse_pauli_op"] = dqcmap._accelerate.sparse_pauli_op
 sys.modules["dqcmap._accelerate.stochastic_swap"] = dqcmap._accelerate.stochastic_swap

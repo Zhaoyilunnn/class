@@ -2,7 +2,8 @@ use hashbrown::HashMap;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
-#[pyclass]
+#[pyclass(module = "dqcmap._accelerate.dqcmap")]
+#[derive(Clone, Debug)]
 pub struct Ctrl2Pq {
     // mapping between controller id and the list of physical qubit indexes
     // this controller connects to

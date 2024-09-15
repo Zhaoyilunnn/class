@@ -35,6 +35,7 @@ from qiskit.transpiler.passes.layout import disjoint_utils
 from qiskit.transpiler.target import Target
 from qiskit.utils.parallel import CPU_COUNT
 
+from dqcmap._accelerate.dqcmap import CifPairs, Ctrl2Pq
 from dqcmap._accelerate.nlayout import NLayout
 from dqcmap._accelerate.sabre import Heuristic, NeighborTable, SabreDAG, sabre_routing
 from dqcmap.circuit_prop import CircProperty
