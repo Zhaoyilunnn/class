@@ -12,7 +12,7 @@ pub struct Ctrl2Pq {
 #[pymethods]
 impl Ctrl2Pq {
     #[new]
-    fn new(obj: &PyDict) -> PyResult<Self> {
+    fn new(obj: Bound<PyDict>) -> PyResult<Self> {
         let mut map = HashMap::new();
         for (k, v) in obj.iter() {
             let key: i32 = k.extract()?;
@@ -28,5 +28,29 @@ impl Ctrl2Pq {
         }
 
         Ok(Ctrl2Pq { map })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyo3::types::IntoPyDict;
+    use pyo3::Python;
+
+    #[test]
+    fn test_ctrl2pq_creation() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            // Create a Python dictionary in Rust
+            let data = vec![(1, vec![1, 2, 3]), (2, vec![4, 5, 6])];
+            let py_dict = data.into_py_dict_bound(py);
+
+            // Create an instance of Ctrl2Pq
+            let ctrl2pq = Ctrl2Pq::new(py_dict).unwrap();
+
+            // Check if the mapping is correct
+            assert_eq!(ctrl2pq.map.get(&1), Some(&vec![1, 2, 3]));
+            assert_eq!(ctrl2pq.map.get(&2), Some(&vec![4, 5, 6]));
+        });
     }
 }
