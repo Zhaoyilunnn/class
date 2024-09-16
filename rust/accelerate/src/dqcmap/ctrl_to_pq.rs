@@ -34,7 +34,10 @@ impl Ctrl2Pq {
 
         Ok(Ctrl2Pq { map, reverse_map })
     }
+}
 
+// Non-python methods
+impl Ctrl2Pq {
     pub fn get_controller_by_qubit(&self, qubit_idx: i32) -> Option<&i32> {
         self.reverse_map.get(&qubit_idx)
     }

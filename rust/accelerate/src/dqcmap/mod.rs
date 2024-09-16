@@ -5,6 +5,7 @@ use pyo3::{types::PyModule, Bound, PyResult};
 
 pub mod cif_pairs;
 pub mod ctrl_to_pq;
+pub mod state;
 
 #[pymodule]
 pub fn dqcmap(m: &Bound<PyModule>) -> PyResult<()> {

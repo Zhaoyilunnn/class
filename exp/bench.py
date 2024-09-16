@@ -261,7 +261,7 @@ def run_circuit(
         qc,
         backend=dev,
         layout_method=layout_method,
-        routing_method="dqcswap",
+        routing_method=routing_method,
         seed_transpiler=seed,
         opt_level=ARGS.opt,
     )

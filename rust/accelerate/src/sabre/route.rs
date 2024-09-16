@@ -30,6 +30,7 @@ use rustworkx_core::token_swapper::token_swapper;
 
 use crate::dqcmap::cif_pairs::CifPairs;
 use crate::dqcmap::ctrl_to_pq::Ctrl2Pq;
+use crate::dqcmap::state::DqcMapState;
 use crate::getenv_use_multiple_threads;
 use crate::nlayout::{NLayout, PhysicalQubit};
 
@@ -90,6 +91,9 @@ struct RoutingState<'a, 'b> {
     swap_scratch: Vec<[PhysicalQubit; 2]>,
     rng: Pcg64Mcg,
     seed: u64,
+    // /// DqcMapState, which is basically a scorer that calculates the number
+    // /// of cross-controller feedback before and after a swap
+    dqcmap_state: DqcMapState<'a>,
 }
 
 impl<'a, 'b> RoutingState<'a, 'b> {
@@ -196,8 +200,15 @@ impl<'a, 'b> RoutingState<'a, 'b> {
     /// restore the layout at the end of themselves, and the recursive calls spawn their own
     /// tracking states, this does not affect our own state.
     fn route_control_flow_block(&self, block: &SabreDAG) -> BlockResult {
-        let (result, mut block_final_layout) =
-            swap_map_trial(self.target, block, self.heuristic, &self.layout, self.seed);
+        let (result, mut block_final_layout) = swap_map_trial(
+            self.target,
+            block,
+            self.heuristic,
+            &self.layout,
+            self.seed,
+            self.dqcmap_state.cif_pairs,
+            self.dqcmap_state.ctrl2pq,
+        );
         // For now, we always append a swap circuit that gets the inner block back to the
         // parent's layout.
         let swap_epilogue = {
@@ -432,6 +443,8 @@ pub fn sabre_routing(
         seed,
         num_trials,
         run_in_parallel,
+        cif_pairs,
+        ctrl2pq,
     );
     (
         res.map,
@@ -459,6 +472,8 @@ pub fn swap_map(
     seed: Option<u64>,
     num_trials: usize,
     run_in_parallel: Option<bool>,
+    cif_pairs: Option<&CifPairs>,
+    ctrl2pq: Option<&Ctrl2Pq>,
 ) -> (SabreResult, NLayout) {
     let run_in_parallel = match run_in_parallel {
         Some(run_in_parallel) => run_in_parallel,
@@ -479,7 +494,15 @@ pub fn swap_map(
             .map(|(index, seed_trial)| {
                 (
                     index,
-                    swap_map_trial(target, dag, heuristic, initial_layout, seed_trial),
+                    swap_map_trial(
+                        target,
+                        dag,
+                        heuristic,
+                        initial_layout,
+                        seed_trial,
+                        cif_pairs,
+                        ctrl2pq,
+                    ),
                 )
             })
             .min_by_key(|(index, (result, _))| {
@@ -493,7 +516,17 @@ pub fn swap_map(
     } else {
         seed_vec
             .into_iter()
-            .map(|seed_trial| swap_map_trial(target, dag, heuristic, initial_layout, seed_trial))
+            .map(|seed_trial| {
+                swap_map_trial(
+                    target,
+                    dag,
+                    heuristic,
+                    initial_layout,
+                    seed_trial,
+                    cif_pairs,
+                    ctrl2pq,
+                )
+            })
             .min_by_key(|(result, _)| result.map.map.values().map(|x| x.len()).sum::<usize>())
             .unwrap()
     }
@@ -506,8 +539,12 @@ pub fn swap_map_trial(
     heuristic: Heuristic,
     initial_layout: &NLayout,
     seed: u64,
+    cif_pairs: Option<&CifPairs>,
+    ctrl2pq: Option<&Ctrl2Pq>,
 ) -> (SabreResult, NLayout) {
     let num_qubits: u32 = target.neighbors.num_qubits().try_into().unwrap();
+    // create dqcmap state on given ctrl2pq and cif_pairs
+    let dqcmap_state = DqcMapState::new(ctrl2pq, cif_pairs);
     let mut state = RoutingState {
         target,
         dag,
@@ -523,6 +560,7 @@ pub fn swap_map_trial(
         swap_scratch: Vec::new(),
         rng: Pcg64Mcg::seed_from_u64(seed),
         seed,
+        dqcmap_state,
     };
     for node in dag.dag.node_indices() {
         for edge in dag.dag.edges(node) {
