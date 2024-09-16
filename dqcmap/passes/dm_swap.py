@@ -259,6 +259,8 @@ class DqcMapSwap(TransformationPass):
             self.coupling_map.size(),
             self._qubit_indices,
         )
+        cif_pairs = CifPairs(self._cif_pairs)
+        ctrl_to_pq = Ctrl2Pq(self._ctrl_to_pq)
         sabre_start = time.perf_counter()
         *sabre_result, final_permutation = sabre_routing(
             sabre_dag,
@@ -268,12 +270,15 @@ class DqcMapSwap(TransformationPass):
             initial_layout,
             self.trials,
             self.seed,
+            cif_pairs=cif_pairs,
+            ctrl2pq=ctrl_to_pq,
         )
         sabre_stop = time.perf_counter()
         logging.debug(
             "Sabre swap algorithm execution complete in: %s", sabre_stop - sabre_start
         )
         final_layout = Layout(dict(zip(dag.qubits, final_permutation)))
+        # print(f"final_permutation: \n{final_permutation}")
         if self.property_set["final_layout"] is None:
             self.property_set["final_layout"] = final_layout
         else:

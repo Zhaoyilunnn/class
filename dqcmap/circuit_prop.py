@@ -1,3 +1,5 @@
+from typing import List
+
 from qiskit import QuantumCircuit
 
 from dqcmap.utils.misc import get_cif_qubit_pairs, get_multi_op_list
@@ -50,3 +52,14 @@ class CircProperty:
                 if len(qargs) == 2:
                     self._two_qubit_gates.append([qargs[0]._index, qargs[1]._index])
         return self._two_qubit_gates
+
+    def layout_cif_pairs(self, layout: List[int]):
+        """Map cif pair indexes to given layout"""
+        res = []
+        for p in self.cif_pairs:
+            pair = []
+            for q in p:
+                pair.append(layout[q])
+            res.append(pair)
+        self._cif_pairs = res
+        return res

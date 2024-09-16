@@ -85,6 +85,10 @@ class MultiCtrlCompiler(BaseCompiler):
         else:
             raise NotImplementedError(f"Unsupported optimization level {opt_level}")
 
+        if initial_layout is not None:
+            # cif_pairs passed to later stages should represent initial layout
+            circ_prop.layout_cif_pairs(initial_layout)
+
         pm = generate_dqcmap_pass_manager(
             optimization_level=1,
             backend=backend,

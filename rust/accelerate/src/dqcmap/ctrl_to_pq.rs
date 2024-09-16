@@ -8,6 +8,8 @@ pub struct Ctrl2Pq {
     // mapping between controller id and the list of physical qubit indexes
     // this controller connects to
     map: HashMap<i32, Vec<i32>>,
+    // mapping between (physical) qubit index and controller id
+    reverse_map: HashMap<i32, i32>,
 }
 
 #[pymethods]
@@ -15,20 +17,26 @@ impl Ctrl2Pq {
     #[new]
     fn new(obj: Bound<PyDict>) -> PyResult<Self> {
         let mut map = HashMap::new();
+        let mut reverse_map = HashMap::new();
         for (k, v) in obj.iter() {
-            let key: i32 = k.extract()?;
+            let ctrl_id: i32 = k.extract()?;
             let value_list: &PyList = v.extract()?;
             let mut vec = Vec::new();
 
             for item in value_list.iter() {
-                let value: i32 = item.extract()?;
-                vec.push(value);
+                let qubit_idx: i32 = item.extract()?;
+                vec.push(qubit_idx);
+                reverse_map.insert(qubit_idx, ctrl_id);
             }
 
-            map.insert(key, vec);
+            map.insert(ctrl_id, vec);
         }
 
-        Ok(Ctrl2Pq { map })
+        Ok(Ctrl2Pq { map, reverse_map })
+    }
+
+    pub fn get_controller_by_qubit(&self, qubit_idx: i32) -> Option<&i32> {
+        self.reverse_map.get(&qubit_idx)
     }
 }
 
