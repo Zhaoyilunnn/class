@@ -91,8 +91,8 @@ struct RoutingState<'a, 'b> {
     swap_scratch: Vec<[PhysicalQubit; 2]>,
     rng: Pcg64Mcg,
     seed: u64,
-    // /// DqcMapState, which is basically a scorer that calculates the number
-    // /// of cross-controller feedback before and after a swap
+    /// DqcMapState, which is basically a scorer that calculates difference of the number
+    /// of cross-controller feedback before and after a swap
     dqcmap_state: DqcMapState<'a>,
 }
 
