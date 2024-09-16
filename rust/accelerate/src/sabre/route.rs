@@ -93,7 +93,7 @@ struct RoutingState<'a, 'b> {
     seed: u64,
     /// DqcMapState, which is basically a scorer that calculates difference of the number
     /// of cross-controller feedback before and after a swap
-    dqcmap_state: DqcMapState<'a>,
+    dqcmap_state: DqcMapState,
 }
 
 impl<'a, 'b> RoutingState<'a, 'b> {
@@ -104,6 +104,15 @@ impl<'a, 'b> RoutingState<'a, 'b> {
         self.front_layer.apply_swap(swap);
         self.extended_set.apply_swap(swap);
         self.layout.swap_physical(swap[0], swap[1]);
+
+        // Update dqcmap state
+        // FIXME: current impl is ugly
+        let swap_vec = [swap[0].index(), swap[1].index()]
+            .iter()
+            .map(|&x| x as i32)
+            .collect();
+        println!("applying swap: {:?}", swap_vec);
+        self.dqcmap_state.apply_swap(&swap_vec);
     }
 
     /// Return the node, if any, that is on this qubit and is routable with the current layout.
@@ -206,8 +215,8 @@ impl<'a, 'b> RoutingState<'a, 'b> {
             self.heuristic,
             &self.layout,
             self.seed,
-            self.dqcmap_state.cif_pairs,
-            self.dqcmap_state.ctrl2pq,
+            self.dqcmap_state.cif_pairs.as_ref(),
+            self.dqcmap_state.ctrl2pq.as_ref(),
         );
         // For now, we always append a swap circuit that gets the inner block back to the
         // parent's layout.
@@ -427,8 +436,8 @@ pub fn sabre_routing(
     num_trials: usize,
     seed: Option<u64>,
     run_in_parallel: Option<bool>,
-    cif_pairs: Option<&CifPairs>,
-    ctrl2pq: Option<&Ctrl2Pq>,
+    cif_pairs: Option<CifPairs>,
+    ctrl2pq: Option<Ctrl2Pq>,
 ) -> (SwapMap, PyObject, NodeBlockResults, PyObject) {
     let target = RoutingTargetView {
         neighbors: neighbor_table,
@@ -472,8 +481,8 @@ pub fn swap_map(
     seed: Option<u64>,
     num_trials: usize,
     run_in_parallel: Option<bool>,
-    cif_pairs: Option<&CifPairs>,
-    ctrl2pq: Option<&Ctrl2Pq>,
+    cif_pairs: Option<CifPairs>,
+    ctrl2pq: Option<Ctrl2Pq>,
 ) -> (SabreResult, NLayout) {
     let run_in_parallel = match run_in_parallel {
         Some(run_in_parallel) => run_in_parallel,
@@ -500,8 +509,8 @@ pub fn swap_map(
                         heuristic,
                         initial_layout,
                         seed_trial,
-                        cif_pairs,
-                        ctrl2pq,
+                        cif_pairs.as_ref(),
+                        ctrl2pq.as_ref(),
                     ),
                 )
             })
@@ -523,8 +532,8 @@ pub fn swap_map(
                     heuristic,
                     initial_layout,
                     seed_trial,
-                    cif_pairs,
-                    ctrl2pq,
+                    cif_pairs.as_ref(),
+                    ctrl2pq.as_ref(),
                 )
             })
             .min_by_key(|(result, _)| result.map.map.values().map(|x| x.len()).sum::<usize>())
@@ -544,7 +553,7 @@ pub fn swap_map_trial(
 ) -> (SabreResult, NLayout) {
     let num_qubits: u32 = target.neighbors.num_qubits().try_into().unwrap();
     // create dqcmap state on given ctrl2pq and cif_pairs
-    let dqcmap_state = DqcMapState::new(ctrl2pq, cif_pairs);
+    let dqcmap_state = DqcMapState::new(ctrl2pq.cloned(), cif_pairs.cloned());
     let mut state = RoutingState {
         target,
         dag,

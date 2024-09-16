@@ -103,4 +103,7 @@ class MultiCtrlCompiler(BaseCompiler):
 
         tqc = pm.run(qc)
 
+        # print(
+        #     f"Transpiled layout:\n{tqc._layout.initial_virtual_layout(filter_ancillas=True)}\n{tqc._layout.final_virtual_layout(filter_ancillas=True)}"
+        # )
         return tqc
