@@ -86,3 +86,49 @@ impl DqcMapState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hashbrown::HashMap;
+
+    #[test]
+    fn test_dqcmapstate_score() {
+        // Set up a Ctrl2Pq instance with mock controller mappings
+        let mut ctrl2pq_map: HashMap<i32, Vec<i32>> = HashMap::new();
+        let mut reverse_map: HashMap<i32, i32> = HashMap::new();
+        ctrl2pq_map.insert(1, vec![0, 1]); // Controller 1 controls qubits 0 and 1
+        ctrl2pq_map.insert(2, vec![2, 3]); // Controller 2 controls qubits 2 and 3
+        reverse_map.insert(0, 1);
+        reverse_map.insert(1, 1);
+        reverse_map.insert(2, 2);
+        reverse_map.insert(3, 2);
+        let ctrl2pq = Ctrl2Pq {
+            map: ctrl2pq_map,
+            reverse_map,
+        };
+
+        // Set up a CifPairs instance with some pairs
+        let cif_pairs = CifPairs {
+            pairs: vec![vec![0, 2], vec![1, 3]], // Feedback pairs between qubits
+        };
+
+        // Create the DqcMapState with the Ctrl2Pq and CifPairs
+        let dqcmap_state = DqcMapState::new(Some(ctrl2pq), Some(cif_pairs));
+
+        // Test case 1: swap between qubits controlled by different controllers
+        let swap1 = vec![0, 2]; // Quibit 0 (Controller 1) and qubit 2 (Controller 2)
+        let score1 = dqcmap_state.score(&swap1);
+        assert_eq!(score1, Some(0)); // One cross-controller feedback is reduced
+
+        // Test case 2: swap between qubits controlled by the same controller
+        let swap2 = vec![0, 1]; // Quibit 0 and qubit 1 both controlled by Controller 1
+        let score2 = dqcmap_state.score(&swap2);
+        assert_eq!(score2, Some(0)); // No cross-controller feedback is introduced
+
+        // Test case 3: swap with no involved pairs (no feedback)
+        let swap3 = vec![1, 2]; // Quibit 1 (Controller 1) and qubit 2 (Controller 2)
+        let score3 = dqcmap_state.score(&swap3);
+        assert_eq!(score3, Some(2)); // No change in feedback count
+    }
+}

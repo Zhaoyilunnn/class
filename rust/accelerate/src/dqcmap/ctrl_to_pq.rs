@@ -7,9 +7,9 @@ use pyo3::types::{PyDict, PyList};
 pub struct Ctrl2Pq {
     // mapping between controller id and the list of physical qubit indexes
     // this controller connects to
-    map: HashMap<i32, Vec<i32>>,
+    pub map: HashMap<i32, Vec<i32>>,
     // mapping between (physical) qubit index and controller id
-    reverse_map: HashMap<i32, i32>,
+    pub reverse_map: HashMap<i32, i32>,
 }
 
 #[pymethods]
