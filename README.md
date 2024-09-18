@@ -6,8 +6,26 @@ apt-get install graphviz
 
 # Development
 
+## Build and Install
+
 ```
 pip install -e .
+```
+
+## Testing
+
+
+### Python
+```
+pytest tests/
+```
+
+### Rust
+
+According to this [guide](https://github.com/Qiskit/qiskit/blob/1.1.1/CONTRIBUTING.md#testing-rust-components)
+
+```
+cargo test --no-default-features
 ```
 
 # pre-commit

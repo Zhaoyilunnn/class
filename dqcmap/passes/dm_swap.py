@@ -19,6 +19,7 @@ Modified by dqc-map
 import logging
 import time
 from copy import deepcopy
+from typing import Optional
 
 import rustworkx
 from qiskit.circuit import ClassicalRegister, Clbit, ControlFlowOp, SwitchCaseOp
@@ -34,8 +35,11 @@ from qiskit.transpiler.passes.layout import disjoint_utils
 from qiskit.transpiler.target import Target
 from qiskit.utils.parallel import CPU_COUNT
 
+from dqcmap._accelerate.dqcmap import CifPairs, Ctrl2Pq
 from dqcmap._accelerate.nlayout import NLayout
 from dqcmap._accelerate.sabre import Heuristic, NeighborTable, SabreDAG, sabre_routing
+from dqcmap.circuit_prop import CircProperty
+from dqcmap.controller import ControllerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +82,14 @@ class DqcMapSwap(TransformationPass):
     """
 
     def __init__(
-        self, coupling_map, heuristic="basic", seed=None, fake_run=False, trials=None
+        self,
+        coupling_map,
+        heuristic="basic",
+        seed=None,
+        fake_run=False,
+        trials=None,
+        ctrl_conf: Optional[ControllerConfig] = None,
+        circ_prop: Optional[CircProperty] = None,
     ):
         r"""DqcMapSwap initializer.
 
@@ -177,6 +188,11 @@ class DqcMapSwap(TransformationPass):
         self._clbit_indices = None
         self.dist_matrix = None
 
+        # dqcmap related attributes
+        self._ctrl_to_pq = ctrl_conf.ctrl_to_pq if ctrl_conf is not None else None
+
+        self._cif_pairs = circ_prop.cif_pairs if circ_prop is not None else None
+
     def run(self, dag):
         """Run the DqcMapSwap pass on `dag`.
 
@@ -217,6 +233,8 @@ class DqcMapSwap(TransformationPass):
             heuristic = Heuristic.Lookahead
         elif self.heuristic == "decay":
             heuristic = Heuristic.Decay
+        elif self.heuristic == "dqcmap":
+            heuristic = Heuristic.DqcMap
         else:
             raise TranspilerError("Heuristic %s not recognized." % self.heuristic)
         disjoint_utils.require_layout_isolated_to_component(
@@ -241,6 +259,8 @@ class DqcMapSwap(TransformationPass):
             self.coupling_map.size(),
             self._qubit_indices,
         )
+        cif_pairs = CifPairs(self._cif_pairs)
+        ctrl_to_pq = Ctrl2Pq(self._ctrl_to_pq)
         sabre_start = time.perf_counter()
         *sabre_result, final_permutation = sabre_routing(
             sabre_dag,
@@ -250,12 +270,15 @@ class DqcMapSwap(TransformationPass):
             initial_layout,
             self.trials,
             self.seed,
+            cif_pairs=cif_pairs,
+            ctrl2pq=ctrl_to_pq,
         )
         sabre_stop = time.perf_counter()
         logging.debug(
             "Sabre swap algorithm execution complete in: %s", sabre_stop - sabre_start
         )
         final_layout = Layout(dict(zip(dag.qubits, final_permutation)))
+        # print(f"final_permutation: \n{final_permutation}")
         if self.property_set["final_layout"] is None:
             self.property_set["final_layout"] = final_layout
         else:

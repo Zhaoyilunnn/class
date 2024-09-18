@@ -1,10 +1,11 @@
 from qiskit import QuantumCircuit, transpile
 from qiskit.providers import Backend, BackendV1, BackendV2
 
-from dqcmap.basecompiler import BaseCompiler
+from dqcmap.basecompiler import BaseCompiler, _CircuitsT
 from dqcmap.circuit_prop import CircProperty
 from dqcmap.controller import ControllerConfig, MapStratety
 from dqcmap.mappers import mapping
+from dqcmap.passes.managers import generate_dqcmap_pass_manager
 from dqcmap.pruners import virtual_prune
 
 
@@ -37,7 +38,7 @@ class MultiCtrlCompiler(BaseCompiler):
         routing_method=None,
         seed_transpiler=None,
         opt_level=1,
-    ):
+    ) -> _CircuitsT:
         if isinstance(backend, BackendV1):
             cm = backend.configuration().coupling_map
         elif isinstance(backend, BackendV2):
@@ -49,6 +50,7 @@ class MultiCtrlCompiler(BaseCompiler):
         # and input to qiskit transpiler
         coupling_map = None
         initial_layout = None
+        circ_prop = CircProperty(qc)
 
         if opt_level == 1:
             coupling_map = virtual_prune(cm, self._sg_nodes_lst)
@@ -58,13 +60,11 @@ class MultiCtrlCompiler(BaseCompiler):
             )
         elif opt_level == 3:
             # 1. mapping
-            circ_prop = CircProperty(qc)
             # initial_layout = mapping(self._conf, circ_prop, mapper_name="kl_partition")
             # initial_layout = mapping(self._conf, circ_prop, mapper_name="heuristic")
             initial_layout = mapping(self._conf, circ_prop, mapper_name="two_step")
         elif opt_level == 4:
             # 1. mapping
-            circ_prop = CircProperty(qc)
             initial_layout = mapping(self._conf, circ_prop, mapper_name="heuristic")
             # 2. pruning
             coupling_map = virtual_prune(
@@ -72,7 +72,6 @@ class MultiCtrlCompiler(BaseCompiler):
             )
         elif opt_level == 5:
             # 1. mapping
-            circ_prop = CircProperty(qc)
             initial_layout = mapping(self._conf, circ_prop, mapper_name="heuristic")
             # 2. pruning
             coupling_map = virtual_prune(
@@ -86,14 +85,25 @@ class MultiCtrlCompiler(BaseCompiler):
         else:
             raise NotImplementedError(f"Unsupported optimization level {opt_level}")
 
-        tqc = transpile(
-            qc,
+        if initial_layout is not None:
+            # cif_pairs passed to later stages should represent initial layout
+            circ_prop.layout_cif_pairs(initial_layout)
+
+        pm = generate_dqcmap_pass_manager(
+            optimization_level=1,
             backend=backend,
             initial_layout=initial_layout,
             coupling_map=coupling_map,
             layout_method=layout_method,
             routing_method=routing_method,
             seed_transpiler=seed_transpiler,
+            ctrl_conf=self._conf,
+            circ_prop=circ_prop,
         )
 
+        tqc = pm.run(qc)
+
+        # print(
+        #     f"Transpiled layout:\n{tqc._layout.initial_virtual_layout(filter_ancillas=True)}\n{tqc._layout.final_virtual_layout(filter_ancillas=True)}"
+        # )
         return tqc

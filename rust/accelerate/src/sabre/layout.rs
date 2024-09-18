@@ -187,8 +187,15 @@ fn layout_trial(
 
     for _iter in 0..max_iterations {
         for dag in [&dag_no_control_forward, &dag_no_control_reverse] {
-            let (_result, final_layout) =
-                swap_map_trial(target, dag, heuristic, &initial_layout, routing_seed);
+            let (_result, final_layout) = swap_map_trial(
+                target,
+                dag,
+                heuristic,
+                &initial_layout,
+                routing_seed,
+                None,
+                None,
+            );
             initial_layout = final_layout;
         }
     }
@@ -201,6 +208,8 @@ fn layout_trial(
         Some(seed),
         num_swap_trials,
         Some(run_swap_in_parallel),
+        None,
+        None,
     );
     let final_permutation = initial_layout
         .iter_physical()

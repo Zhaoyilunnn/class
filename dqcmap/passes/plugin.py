@@ -12,6 +12,9 @@ from qiskit.transpiler.passmanager import PassManager
 from qiskit.transpiler.preset_passmanagers import common
 from qiskit.transpiler.preset_passmanagers.plugin import PassManagerStagePlugin
 
+from dqcmap.circuit_prop import CircProperty
+from dqcmap.controller import ControllerConfig
+
 from .dm_layout import DqcMapLayout
 from .dm_swap import DqcMapSwap
 
@@ -98,6 +101,18 @@ class DqcMapRoutePlugin(PassManagerStagePlugin):
 
     def pass_manager(self, pass_manager_config, optimization_level=None) -> PassManager:
         """Build routing stage PassManager."""
+        # check if dqcmap related attributes exist
+        ctrl_conf = None
+        circ_prop = None
+        if hasattr(pass_manager_config, "ctrl_conf") and hasattr(
+            pass_manager_config, "circ_prop"
+        ):
+            ctrl_conf = getattr(pass_manager_config, "ctrl_conf")
+            circ_prop = getattr(pass_manager_config, "circ_prop")
+            assert isinstance(ctrl_conf, ControllerConfig) and isinstance(
+                circ_prop, CircProperty
+            )
+
         seed_transpiler = pass_manager_config.seed_transpiler
         target = pass_manager_config.target
         coupling_map = pass_manager_config.coupling_map
@@ -127,9 +142,11 @@ class DqcMapRoutePlugin(PassManagerStagePlugin):
         if optimization_level == 1:
             routing_pass = DqcMapSwap(
                 coupling_map_routing,
-                heuristic="decay",
+                heuristic="dqcmap",
                 seed=seed_transpiler,
                 trials=5,
+                ctrl_conf=ctrl_conf,
+                circ_prop=circ_prop,
             )
             return common.generate_routing_passmanager(
                 routing_pass,

@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, List, Union
 
 from qiskit import QuantumCircuit
 from qiskit.providers import Backend
 
 from dqcmap.controller import ControllerConfig
+
+_CircuitsT = Union[QuantumCircuit, List[QuantumCircuit]]
 
 
 class BaseCompiler(ABC):
@@ -21,7 +23,7 @@ class BaseCompiler(ABC):
         routing_method=None,
         seed_transpiler=None,
         opt_level: int = 1,
-    ) -> QuantumCircuit:
+    ) -> _CircuitsT:
         """
         Run transpilation
 

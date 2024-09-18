@@ -14,7 +14,7 @@ use pyo3::prelude::*;
 use pyo3::wrap_pymodule;
 
 use dqcmap_accelerate::{
-    convert_2q_block_matrix::convert_2q_block_matrix, dense_layout::dense_layout,
+    convert_2q_block_matrix::convert_2q_block_matrix, dense_layout::dense_layout, dqcmap::dqcmap,
     error_map::error_map, euler_one_qubit_decomposer::euler_one_qubit_decomposer,
     isometry::isometry, nlayout::nlayout, optimize_1q_gates::optimize_1q_gates,
     pauli_exp_val::pauli_expval, results::results, sabre::sabre, sampled_exp_val::sampled_exp_val,
@@ -36,6 +36,7 @@ fn _accelerate(m: &Bound<PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pymodule!(pauli_expval))?;
     m.add_wrapped(wrap_pymodule!(results))?;
     m.add_wrapped(wrap_pymodule!(sabre))?;
+    m.add_wrapped(wrap_pymodule!(dqcmap))?;
     m.add_wrapped(wrap_pymodule!(sampled_exp_val))?;
     m.add_wrapped(wrap_pymodule!(sparse_pauli_op))?;
     m.add_wrapped(wrap_pymodule!(stochastic_swap))?;

@@ -28,6 +28,9 @@ use rustworkx_core::petgraph::visit::EdgeRef;
 use rustworkx_core::shortest_path::dijkstra;
 use rustworkx_core::token_swapper::token_swapper;
 
+use crate::dqcmap::cif_pairs::CifPairs;
+use crate::dqcmap::ctrl_to_pq::Ctrl2Pq;
+use crate::dqcmap::state::DqcMapState;
 use crate::getenv_use_multiple_threads;
 use crate::nlayout::{NLayout, PhysicalQubit};
 
@@ -88,6 +91,9 @@ struct RoutingState<'a, 'b> {
     swap_scratch: Vec<[PhysicalQubit; 2]>,
     rng: Pcg64Mcg,
     seed: u64,
+    /// DqcMapState, which is basically a scorer that calculates difference of the number
+    /// of cross-controller feedback before and after a swap
+    dqcmap_state: DqcMapState,
 }
 
 impl<'a, 'b> RoutingState<'a, 'b> {
@@ -98,6 +104,15 @@ impl<'a, 'b> RoutingState<'a, 'b> {
         self.front_layer.apply_swap(swap);
         self.extended_set.apply_swap(swap);
         self.layout.swap_physical(swap[0], swap[1]);
+
+        // Update dqcmap state
+        // FIXME: current impl is ugly
+        let swap_vec = [swap[0].index(), swap[1].index()]
+            .iter()
+            .map(|&x| x as i32)
+            .collect();
+        println!("applying swap: {:?}", swap_vec);
+        self.dqcmap_state.apply_swap(&swap_vec);
     }
 
     /// Return the node, if any, that is on this qubit and is routable with the current layout.
@@ -194,8 +209,15 @@ impl<'a, 'b> RoutingState<'a, 'b> {
     /// restore the layout at the end of themselves, and the recursive calls spawn their own
     /// tracking states, this does not affect our own state.
     fn route_control_flow_block(&self, block: &SabreDAG) -> BlockResult {
-        let (result, mut block_final_layout) =
-            swap_map_trial(self.target, block, self.heuristic, &self.layout, self.seed);
+        let (result, mut block_final_layout) = swap_map_trial(
+            self.target,
+            block,
+            self.heuristic,
+            &self.layout,
+            self.seed,
+            self.dqcmap_state.cif_pairs.as_ref(),
+            self.dqcmap_state.ctrl2pq.as_ref(),
+        );
         // For now, we always append a swap circuit that gets the inner block back to the
         // parent's layout.
         let swap_epilogue = {
@@ -353,7 +375,7 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                     self.front_layer.score(swap, dist)
                         + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist)
                 }
-                Heuristic::Decay => {
+                Heuristic::Decay | Heuristic::DqcMap => {
                     self.qubits_decay[swap[0].index()].max(self.qubits_decay[swap[1].index()])
                         * (absolute_score
                             + self.front_layer.score(swap, dist)
@@ -368,7 +390,37 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                 self.swap_scratch.push(swap);
             }
         }
-        *self.swap_scratch.choose(&mut self.rng).unwrap()
+        // if there are multiple swaps in `swap_scratch` and the heuristic is DqcMap,
+        // calculate dqcmap score and select the smallest one
+        if self.heuristic == Heuristic::DqcMap && self.swap_scratch.len() > 1 {
+            println!(
+                "Checking dqcmap scores for {} swaps",
+                self.swap_scratch.len()
+            );
+            let mut max_dqcmap_score = i32::MIN;
+            let mut best_swaps: Vec<[PhysicalQubit; 2]> = Vec::new();
+
+            for &swap in &self.swap_scratch {
+                if let Some(score) = self
+                    .dqcmap_state
+                    .score(&vec![swap[0].index() as i32, swap[1].index() as i32])
+                {
+                    if score > max_dqcmap_score {
+                        max_dqcmap_score = score;
+                        best_swaps.clear();
+                        best_swaps.push(swap);
+                    } else if score == max_dqcmap_score {
+                        best_swaps.push(swap);
+                    }
+                }
+            }
+
+            // Randomly choose one from the best swaps
+            *best_swaps.choose(&mut self.rng).unwrap()
+        } else {
+            // Randomly choose one from swap_scratch
+            *self.swap_scratch.choose(&mut self.rng).unwrap()
+        }
     }
 }
 
@@ -413,6 +465,8 @@ pub fn sabre_routing(
     num_trials: usize,
     seed: Option<u64>,
     run_in_parallel: Option<bool>,
+    cif_pairs: Option<CifPairs>,
+    ctrl2pq: Option<Ctrl2Pq>,
 ) -> (SwapMap, PyObject, NodeBlockResults, PyObject) {
     let target = RoutingTargetView {
         neighbors: neighbor_table,
@@ -427,6 +481,8 @@ pub fn sabre_routing(
         seed,
         num_trials,
         run_in_parallel,
+        cif_pairs,
+        ctrl2pq,
     );
     (
         res.map,
@@ -454,6 +510,8 @@ pub fn swap_map(
     seed: Option<u64>,
     num_trials: usize,
     run_in_parallel: Option<bool>,
+    cif_pairs: Option<CifPairs>,
+    ctrl2pq: Option<Ctrl2Pq>,
 ) -> (SabreResult, NLayout) {
     let run_in_parallel = match run_in_parallel {
         Some(run_in_parallel) => run_in_parallel,
@@ -474,7 +532,15 @@ pub fn swap_map(
             .map(|(index, seed_trial)| {
                 (
                     index,
-                    swap_map_trial(target, dag, heuristic, initial_layout, seed_trial),
+                    swap_map_trial(
+                        target,
+                        dag,
+                        heuristic,
+                        initial_layout,
+                        seed_trial,
+                        cif_pairs.as_ref(),
+                        ctrl2pq.as_ref(),
+                    ),
                 )
             })
             .min_by_key(|(index, (result, _))| {
@@ -488,7 +554,17 @@ pub fn swap_map(
     } else {
         seed_vec
             .into_iter()
-            .map(|seed_trial| swap_map_trial(target, dag, heuristic, initial_layout, seed_trial))
+            .map(|seed_trial| {
+                swap_map_trial(
+                    target,
+                    dag,
+                    heuristic,
+                    initial_layout,
+                    seed_trial,
+                    cif_pairs.as_ref(),
+                    ctrl2pq.as_ref(),
+                )
+            })
             .min_by_key(|(result, _)| result.map.map.values().map(|x| x.len()).sum::<usize>())
             .unwrap()
     }
@@ -501,8 +577,12 @@ pub fn swap_map_trial(
     heuristic: Heuristic,
     initial_layout: &NLayout,
     seed: u64,
+    cif_pairs: Option<&CifPairs>,
+    ctrl2pq: Option<&Ctrl2Pq>,
 ) -> (SabreResult, NLayout) {
     let num_qubits: u32 = target.neighbors.num_qubits().try_into().unwrap();
+    // create dqcmap state on given ctrl2pq and cif_pairs
+    let dqcmap_state = DqcMapState::new(ctrl2pq.cloned(), cif_pairs.cloned());
     let mut state = RoutingState {
         target,
         dag,
@@ -518,6 +598,7 @@ pub fn swap_map_trial(
         swap_scratch: Vec::new(),
         rng: Pcg64Mcg::seed_from_u64(seed),
         seed,
+        dqcmap_state,
     };
     for node in dag.dag.node_indices() {
         for edge in dag.dag.edges(node) {
@@ -558,7 +639,7 @@ pub fn swap_map_trial(
         }
         if routable_nodes.is_empty() {
             // If we exceeded the max number of heuristic-chosen swaps without making progress,
-            // unwind to the last progress point and greedily swap to bring a ndoe together.
+            // unwind to the last progress point and greedily swap to bring a node together.
             // Efficiency doesn't matter much; this path never gets taken unless we're unlucky.
             current_swaps
                 .drain(..)

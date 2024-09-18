@@ -80,6 +80,12 @@ def get_args():
         type=float,
         help="Specifying the scaling factor of two-qubit gate time. State-of-the-art two-qubit gate time is much smaller than public available devices. So use this config to simulate most recent devices.",
     )
+    parser.add_argument(
+        "--rt",
+        default="dqcswap",
+        type=str,
+        help="Routing method. For baseline, it will always be set to `sabre`, for multi_ctrl it will be this argument.",
+    )
 
     return parser.parse_args()
 
@@ -247,16 +253,21 @@ def run_circuit(
     evaluator,
     conf,
     layout_method,
-    name,
+    compiler_name,
 ):
     debug_qc(qc)
-    compiler = COMPILERS[name](conf)
+    compiler = COMPILERS[compiler_name](conf)
+
+    if compiler_name == "baseline":
+        routing_method = "sabre"
+    else:
+        routing_method = ARGS.rt
 
     tqc = compiler.run(
         qc,
         backend=dev,
         layout_method=layout_method,
-        routing_method="dqcswap",
+        routing_method=routing_method,
         seed_transpiler=seed,
         opt_level=ARGS.opt,
     )
@@ -277,7 +288,7 @@ def run_circuit(
     depth = tqc.depth()
     # return perc_inter, total_latency, num_op
     return Result(
-        compiler_method=name,
+        compiler_method=compiler_name,
         runtime=total_latency,
         perc_inter=perc_inter,
         num_ops=num_op,
@@ -321,7 +332,7 @@ def main():
                     name,
                 )
                 for qc in qc_lst
-                for layout_method in ["dqcmap"]
+                for layout_method in ["sabre"]
                 for name in compiler_name_lst
             )
             # print(results)
@@ -329,7 +340,7 @@ def main():
         else:
             results = []
             for qc in qc_lst:
-                for layout_method in ["dqcmap"]:
+                for layout_method in ["sabre"]:
                     for name in compiler_name_lst:
                         res = run_circuit(
                             qc,

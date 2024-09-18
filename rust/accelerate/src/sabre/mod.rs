@@ -30,11 +30,12 @@ use sabre_dag::SabreDAG;
 use swap_map::SwapMap;
 
 #[pyclass]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Heuristic {
     Basic,
     Lookahead,
     Decay,
+    DqcMap,
 }
 
 /// A container for Sabre mapping results.
