@@ -142,7 +142,7 @@ class DqcMapRoutePlugin(PassManagerStagePlugin):
         if optimization_level == 1:
             routing_pass = DqcMapSwap(
                 coupling_map_routing,
-                heuristic="decay",
+                heuristic="dqcmap",
                 seed=seed_transpiler,
                 trials=5,
                 ctrl_conf=ctrl_conf,

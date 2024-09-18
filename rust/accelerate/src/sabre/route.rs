@@ -375,13 +375,12 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                     self.front_layer.score(swap, dist)
                         + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist)
                 }
-                Heuristic::Decay => {
+                Heuristic::Decay | Heuristic::DqcMap => {
                     self.qubits_decay[swap[0].index()].max(self.qubits_decay[swap[1].index()])
                         * (absolute_score
                             + self.front_layer.score(swap, dist)
                             + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist))
                 }
-                Heuristic::DqcMap => 0.0,
             };
             if score < min_score - BEST_EPSILON {
                 min_score = score;
@@ -391,7 +390,37 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                 self.swap_scratch.push(swap);
             }
         }
-        *self.swap_scratch.choose(&mut self.rng).unwrap()
+        // if there are multiple swaps in `swap_scratch` and the heuristic is DqcMap,
+        // calculate dqcmap score and select the smallest one
+        if self.heuristic == Heuristic::DqcMap && self.swap_scratch.len() > 1 {
+            println!(
+                "Checking dqcmap scores for {} swaps",
+                self.swap_scratch.len()
+            );
+            let mut max_dqcmap_score = i32::MIN;
+            let mut best_swaps: Vec<[PhysicalQubit; 2]> = Vec::new();
+
+            for &swap in &self.swap_scratch {
+                if let Some(score) = self
+                    .dqcmap_state
+                    .score(&vec![swap[0].index() as i32, swap[1].index() as i32])
+                {
+                    if score > max_dqcmap_score {
+                        max_dqcmap_score = score;
+                        best_swaps.clear();
+                        best_swaps.push(swap);
+                    } else if score == max_dqcmap_score {
+                        best_swaps.push(swap);
+                    }
+                }
+            }
+
+            // Randomly choose one from the best swaps
+            *best_swaps.choose(&mut self.rng).unwrap()
+        } else {
+            // Randomly choose one from swap_scratch
+            *self.swap_scratch.choose(&mut self.rng).unwrap()
+        }
     }
 }
 

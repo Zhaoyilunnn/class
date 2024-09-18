@@ -80,6 +80,12 @@ def get_args():
         type=float,
         help="Specifying the scaling factor of two-qubit gate time. State-of-the-art two-qubit gate time is much smaller than public available devices. So use this config to simulate most recent devices.",
     )
+    parser.add_argument(
+        "--rt",
+        default="dqcswap",
+        type=str,
+        help="Routing method. For baseline, it will always be set to `sabre`, for multi_ctrl it will be this argument.",
+    )
 
     return parser.parse_args()
 
@@ -247,15 +253,15 @@ def run_circuit(
     evaluator,
     conf,
     layout_method,
-    name,
+    compiler_name,
 ):
     debug_qc(qc)
-    compiler = COMPILERS[name](conf)
+    compiler = COMPILERS[compiler_name](conf)
 
-    if name == "baseline":
+    if compiler_name == "baseline":
         routing_method = "sabre"
     else:
-        routing_method = "dqcswap"
+        routing_method = ARGS.rt
 
     tqc = compiler.run(
         qc,
@@ -282,7 +288,7 @@ def run_circuit(
     depth = tqc.depth()
     # return perc_inter, total_latency, num_op
     return Result(
-        compiler_method=name,
+        compiler_method=compiler_name,
         runtime=total_latency,
         perc_inter=perc_inter,
         num_ops=num_op,
