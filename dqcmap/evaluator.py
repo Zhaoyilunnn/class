@@ -89,6 +89,7 @@ class Eval:
         pairs = get_cif_qubit_pairs(qc)
         # convert to integer value
         pairs = [[q0._index, q1._index] for [q0, q1] in pairs]
+        # print(f"Cif pairs after transpilation: {pairs}")
 
         # Calculate the original latency
         calc_start = time.perf_counter()

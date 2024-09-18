@@ -111,8 +111,11 @@ impl<'a, 'b> RoutingState<'a, 'b> {
             .iter()
             .map(|&x| x as i32)
             .collect();
-        println!("applying swap: {:?}", swap_vec);
-        self.dqcmap_state.apply_swap(&swap_vec);
+        // println!("applying swap: {:?}", swap_vec);
+        self.dqcmap_state.apply_swap(&swap_vec, &self.gate_order);
+        // if let Some(pairs) = self.dqcmap_state.cif_pairs.as_ref() {
+        //     println!("Current cif_pairs are: {:?}", pairs.pairs);
+        // }
     }
 
     /// Return the node, if any, that is on this qubit and is routable with the current layout.
@@ -203,6 +206,7 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                 }
             }
         }
+        // println!("Current gate order is: {:?}", self.gate_order);
     }
 
     /// Inner worker to route a control-flow block.  Since control-flow blocks are routed to
@@ -393,18 +397,19 @@ impl<'a, 'b> RoutingState<'a, 'b> {
         // if there are multiple swaps in `swap_scratch` and the heuristic is DqcMap,
         // calculate dqcmap score and select the smallest one
         if self.heuristic == Heuristic::DqcMap && self.swap_scratch.len() > 1 {
-            println!(
-                "Checking dqcmap scores for {} swaps",
-                self.swap_scratch.len()
-            );
+            // println!(
+            //     "Checking dqcmap scores for {} swaps",
+            //     self.swap_scratch.len()
+            // );
             let mut max_dqcmap_score = i32::MIN;
             let mut best_swaps: Vec<[PhysicalQubit; 2]> = Vec::new();
 
             for &swap in &self.swap_scratch {
-                if let Some(score) = self
-                    .dqcmap_state
-                    .score(&vec![swap[0].index() as i32, swap[1].index() as i32])
-                {
+                if let Some(score) = self.dqcmap_state.score(
+                    &vec![swap[0].index() as i32, swap[1].index() as i32],
+                    &self.gate_order,
+                ) {
+                    // println!("Score of swap: {:?} is: {}", swap, score);
                     if score > max_dqcmap_score {
                         max_dqcmap_score = score;
                         best_swaps.clear();
@@ -415,6 +420,7 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                 }
             }
 
+            // println!("Filtered candidate swaps are: {:?}", best_swaps);
             // Randomly choose one from the best swaps
             *best_swaps.choose(&mut self.rng).unwrap()
         } else {

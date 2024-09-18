@@ -191,6 +191,7 @@ class DqcMapSwap(TransformationPass):
         # dqcmap related attributes
         self._ctrl_to_pq = ctrl_conf.ctrl_to_pq if ctrl_conf is not None else None
 
+        # TODO: delete this and no need to pass circ_prop to dm_swap anymore
         self._cif_pairs = circ_prop.cif_pairs if circ_prop is not None else None
 
     def run(self, dag):
@@ -254,12 +255,12 @@ class DqcMapSwap(TransformationPass):
             layout_mapping, len(dag.qubits), self.coupling_map.size()
         )
 
-        sabre_dag, circuit_to_dag_dict = _build_sabre_dag(
+        (sabre_dag, circuit_to_dag_dict), cif_pairs = _build_sabre_dag(
             dag,
             self.coupling_map.size(),
             self._qubit_indices,
         )
-        cif_pairs = CifPairs(self._cif_pairs)
+        cif_pairs = CifPairs(cif_pairs)
         ctrl_to_pq = Ctrl2Pq(self._ctrl_to_pq)
         sabre_start = time.perf_counter()
         *sabre_result, final_permutation = sabre_routing(
@@ -303,6 +304,10 @@ def _build_sabre_dag(dag, num_physical_qubits, qubit_indices):
     # Maps id(block): circuit_to_dag(block) for all descendant blocks
     circuit_to_dag_dict = {}
 
+    # Maps cbit: last qbit :=  measure qbit -> cbit
+    cbits_measure_dict = {}
+    cif_pairs = {}
+
     def recurse(block, block_qubit_indices):
         block_id = id(block)
         if block_id in circuit_to_dag_dict:
@@ -313,12 +318,34 @@ def _build_sabre_dag(dag, num_physical_qubits, qubit_indices):
         return process_dag(block_dag, block_qubit_indices)
 
     def process_dag(block_dag, wire_map):
+        """Here we extract cif_pairs and bind it to node._node_id"""
         dag_list = []
         node_blocks = {}
         for node in block_dag.topological_op_nodes():
             cargs_bits = set(node.cargs)
+
+            #### Modification by dqcmap ####
+            if node.op.name == "measure":
+                # FIXME: currently we only support single qubit measurement
+                if len(node.cargs) == 1:
+                    assert len(node.qargs) == 1
+                    qindex = wire_map[node.qargs[0]]
+                    cindex = block_dag.find_bit(node.cargs[0]).index
+                    cbits_measure_dict[cindex] = qindex
+            #### Modification by dqcmap ####
+
             if node.op.condition is not None:
-                cargs_bits.update(condition_resources(node.op.condition).clbits)
+                clbits = condition_resources(node.op.condition).clbits
+                cargs_bits.update(clbits)
+                # FIXME: currently we only support single qubit measurement
+                if len(clbits) == 1:
+                    cindex = block_dag.find_bit(clbits[0]).index
+                    cond_qind = cbits_measure_dict[cindex]
+                    qindexes = [wire_map[x] for x in node.qargs]
+                    cif_pairs.setdefault(node._node_id, [])
+                    for qind in qindexes:
+                        cif_pairs[node._node_id].append([qind, cond_qind])
+
             if isinstance(node.op, SwitchCaseOp):
                 target = node.op.target
                 if isinstance(target, Clbit):
@@ -347,11 +374,14 @@ def _build_sabre_dag(dag, num_physical_qubits, qubit_indices):
                     getattr(node.op, "_directive", False),
                 )
             )
+            # print(f"Node id: {node._node_id} operation: {node.op} has cargs: {cargs}")
         return SabreDAG(
             num_physical_qubits, block_dag.num_clbits(), dag_list, node_blocks
         )
 
-    return process_dag(dag, qubit_indices), circuit_to_dag_dict
+    ret = process_dag(dag, qubit_indices), circuit_to_dag_dict
+    logger.debug(f"Extracted cif_pairs during building sabre_dag: {cif_pairs}")
+    return ret, cif_pairs
 
 
 def _apply_sabre_result(

@@ -44,6 +44,7 @@ pub struct SabreDAG {
     pub first_layer: Vec<NodeIndex>,
     pub nodes: Vec<(usize, Vec<VirtualQubit>, HashSet<usize>, bool)>,
     pub node_blocks: HashMap<usize, Vec<SabreDAG>>,
+    // add cif_pairs, a has map with key the NodeIndex (gate_index) and value the pairs
 }
 
 #[pymethods]
