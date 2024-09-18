@@ -332,7 +332,7 @@ def main():
                     name,
                 )
                 for qc in qc_lst
-                for layout_method in ["dqcmap"]
+                for layout_method in ["sabre"]
                 for name in compiler_name_lst
             )
             # print(results)
@@ -340,7 +340,7 @@ def main():
         else:
             results = []
             for qc in qc_lst:
-                for layout_method in ["dqcmap"]:
+                for layout_method in ["sabre"]:
                     for name in compiler_name_lst:
                         res = run_circuit(
                             qc,
