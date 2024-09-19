@@ -20,6 +20,7 @@ class QiskitDefaultCompiler(BaseCompiler):
         routing_method=None,
         seed_transpiler=None,
         opt_level=1,
+        heuristic="dqcmap",
     ):
         return transpile(
             qc,

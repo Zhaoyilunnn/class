@@ -6,6 +6,8 @@ from typing import Dict, List, Tuple
 from dqcmap.basemapper import BaseMapper
 from dqcmap.exceptions import DqcMapException
 
+random.seed(111)
+
 
 class KLMapper(BaseMapper):
     def __init__(self, ctrl_conf, circ_prop):

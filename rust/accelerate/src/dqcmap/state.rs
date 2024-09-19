@@ -85,6 +85,38 @@ impl DqcMapState {
             cif_pairs.apply_swap(swap, gate_order);
         }
     }
+
+    pub fn total_cross_ctrl_fb(&self) -> Option<i32> {
+        let mut all_pairs: Vec<Vec<i32>> = Vec::new();
+        let cif_pairs: &CifPairs = self.cif_pairs.as_ref()?;
+
+        // Collect all pairs from cif_pairs
+        for (_, pairs) in &cif_pairs.pairs {
+            all_pairs.extend(pairs.iter().cloned()); // Collect all pairs
+        }
+
+        let ctrl2pq = self.ctrl2pq.as_ref()?;
+        let mut total_cross_ctrl_fb = 0;
+
+        // Iterate through all pairs and count the cross-controller feedbacks
+        for pair in &all_pairs {
+            if pair.len() != 2 {
+                continue; // Skip invalid pairs
+            }
+
+            let ctrl0 = ctrl2pq.get_controller_by_qubit(pair[0]);
+            let ctrl1 = ctrl2pq.get_controller_by_qubit(pair[1]);
+
+            // Check if the pair involves different controllers
+            if let (Some(c0), Some(c1)) = (ctrl0, ctrl1) {
+                if c0 != c1 {
+                    total_cross_ctrl_fb += 1; // Increase count for cross-controller feedback
+                }
+            }
+        }
+
+        Some(total_cross_ctrl_fb)
+    }
 }
 
 #[cfg(test)]

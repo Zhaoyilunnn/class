@@ -469,22 +469,54 @@ def update_backend_cx_time_v2(backend: Backend, scale_factor: float):
         cmd_def = defs_dict["cmd_def"]
 
         for cmd in cmd_def:
-            if "qubits" in cmd and len(cmd["qubits"]) == 2:
-                # found two qubit gate pulse definitions
-                assert "sequence" in cmd
-                sequence = cmd["sequence"]
+            # found two qubit gate pulse definitions
+            assert "sequence" in cmd
+            sequence = cmd["sequence"]
 
-                for seq in sequence:
-                    if "parameters" in seq:
-                        param = seq["parameters"]
-                        if "duration" in param:
-                            dur = param["duration"]
-                            dur *= scale_factor
-                            param["duration"] = int(dur)
-                        if "width" in param:
-                            width = param["width"]
-                            width *= scale_factor
-                            param["width"] = int(width)
+            for seq in sequence:
+                if "parameters" in seq:
+                    param = seq["parameters"]
+                    if "duration" in param:
+                        dur = param["duration"]
+                        dur *= scale_factor
+                        param["duration"] = int(dur)
+                    if "width" in param:
+                        width = param["width"]
+                        width *= scale_factor
+                        param["width"] = int(width)
+            # if ("qubits" in cmd and len(cmd["qubits"]) == 2):
+            #    # found two qubit gate pulse definitions
+            #    assert "sequence" in cmd
+            #    sequence = cmd["sequence"]
+
+            #    for seq in sequence:
+            #        if "parameters" in seq:
+            #            param = seq["parameters"]
+            #            if "duration" in param:
+            #                dur = param["duration"]
+            #                dur *= scale_factor
+            #                param["duration"] = int(dur)
+            #            if "width" in param:
+            #                width = param["width"]
+            #                width *= scale_factor
+            #                param["width"] = int(width)
+            # elif (
+            #    "name" in cmd and cmd["name"] == "measure"
+            #    ):
+            #    assert "sequence" in cmd
+            #    sequence = cmd["sequence"]
+
+            #    for seq in sequence:
+            #        if "parameters" in seq:
+            #            param = seq["parameters"]
+            #            if "duration" in param:
+            #                dur = param["duration"]
+            #                dur *= scale_factor
+            #                param["duration"] = int(dur)
+            #            if "width" in param:
+            #                width = param["width"]
+            #                width *= scale_factor
+            #                param["width"] = int(width)
 
         # update _defaults
         backend._defaults = PulseDefaults.from_dict(defs_dict)

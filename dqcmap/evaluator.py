@@ -3,7 +3,7 @@ import time
 from typing import List, Optional
 
 from qiskit import QuantumCircuit
-from qiskit.circuit import Qubit
+from qiskit.circuit import CircuitInstruction, Qubit
 from qiskit.compiler import schedule
 from qiskit.providers import Backend
 from qiskit.pulse import Schedule
@@ -191,3 +191,18 @@ class Eval:
         self._inner_ctrl_latency = inner_latency
         self._inter_ctrl_latency = inter_latency
         return ctrl_latency
+
+
+class EvalV2(Eval):
+    def calc_orig_latency(self, qc: QuantumCircuit, backend: Backend):
+        res = 0.0
+        for val in qc.data:
+            if isinstance(val, CircuitInstruction):
+                operation, qargs, cargs = val.operation, val.qubits, val.clbits
+                if operation.name != "measure":
+                    if len(qargs) == 2:
+                        res += 4e-8
+                    elif len(qargs) == 1:
+                        res += 2e-8
+
+        return res

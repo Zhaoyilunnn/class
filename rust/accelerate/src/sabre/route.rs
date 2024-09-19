@@ -52,6 +52,8 @@ const DECAY_RESET_INTERVAL: u8 = 5;
 const EXTENDED_SET_WEIGHT: f64 = 0.5;
 /// Number of trials for control flow block swap epilogues.
 const SWAP_EPILOGUE_TRIALS: usize = 4;
+/// Delta for selecting a swap for less inter-controller feedback
+const DQC_SWAP_DELTA: i32 = 0;
 
 /// A view object onto a full routing target.  This is cheap to clone and to replace components
 /// within it; cloning only duplicates the inner references and not the data objects beneath.  This
@@ -97,6 +99,12 @@ struct RoutingState<'a, 'b> {
 }
 
 impl<'a, 'b> RoutingState<'a, 'b> {
+    /// Get current total dqcmap cross-controller feedback
+    #[inline]
+    pub fn get_total_cross_ctrl_fb(&self) -> Option<i32> {
+        self.dqcmap_state.total_cross_ctrl_fb()
+    }
+
     /// Apply a swap to the program-state structures (front layer, extended set and current
     /// layout).
     #[inline]
@@ -410,11 +418,11 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                     &self.gate_order,
                 ) {
                     // println!("Score of swap: {:?} is: {}", swap, score);
-                    if score > max_dqcmap_score {
+                    if score > max_dqcmap_score + DQC_SWAP_DELTA {
                         max_dqcmap_score = score;
                         best_swaps.clear();
                         best_swaps.push(swap);
-                    } else if score == max_dqcmap_score {
+                    } else if score >= max_dqcmap_score - DQC_SWAP_DELTA {
                         best_swaps.push(swap);
                     }
                 }
@@ -658,6 +666,12 @@ pub fn swap_map_trial(
         state.qubits_decay.fill(1.);
         routable_nodes.clear();
     }
+    // if let Some(num_fb) = state.get_total_cross_ctrl_fb() {
+    //     println!(
+    //         "Total number of cross-ctrl feedbacks after this swap_map_trial is: {}",
+    //         num_fb
+    //     );
+    // }
     (
         SabreResult {
             map: SwapMap { map: state.out_map },

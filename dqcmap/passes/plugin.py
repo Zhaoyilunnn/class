@@ -52,9 +52,12 @@ class DqcMapLayoutPlugin(PassManagerStagePlugin):
                 max_iterations=2,
                 seed=pass_manager_config.seed_transpiler,
                 swap_trials=5,
-                layout_trials=5,
+                layout_trials=0,
                 skip_routing=pass_manager_config.routing_method is not None
                 and pass_manager_config.routing_method != "sabre",
+                sabre_starting_layouts=getattr(
+                    pass_manager_config, "sabre_starting_layouts"
+                ),
             )
         elif optimization_level == 2:
             layout_pass = SabreLayout(
@@ -140,9 +143,14 @@ class DqcMapRoutePlugin(PassManagerStagePlugin):
                 use_barrier_before_measurement=True,
             )
         if optimization_level == 1:
+            heuristic = (
+                getattr(pass_manager_config, "heuristic")
+                if hasattr(pass_manager_config, "heuristic")
+                else "dqcmap"
+            )
             routing_pass = DqcMapSwap(
                 coupling_map_routing,
-                heuristic="dqcmap",
+                heuristic=heuristic,
                 seed=seed_transpiler,
                 trials=5,
                 ctrl_conf=ctrl_conf,

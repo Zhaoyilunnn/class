@@ -23,6 +23,7 @@ class BaseCompiler(ABC):
         routing_method=None,
         seed_transpiler=None,
         opt_level: int = 1,
+        heuristic: str = "dqcmap",
     ) -> _CircuitsT:
         """
         Run transpilation

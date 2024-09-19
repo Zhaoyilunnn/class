@@ -14,7 +14,7 @@ from dqcmap.basecompiler import BaseCompiler
 from dqcmap.compilers import QiskitDefaultCompiler, SingleCtrlCompiler
 from dqcmap.compilers.multi_ctrl_compiler import MultiCtrlCompiler
 from dqcmap.controller import MapStratety
-from dqcmap.evaluator import Eval
+from dqcmap.evaluator import Eval, EvalV2
 from dqcmap.exceptions import DqcMapException
 from dqcmap.utils import check_swap_needed, get_synthetic_dqc
 from dqcmap.utils.cm import CmHelper
@@ -85,6 +85,9 @@ def get_args():
         default="dqcswap",
         type=str,
         help="Routing method. For baseline, it will always be set to `sabre`, for multi_ctrl it will be this argument.",
+    )
+    parser.add_argument(
+        "--heuristic", default="dqcmap", type=str, help="Heuristic for dqcswap routing."
     )
 
     return parser.parse_args()
@@ -260,6 +263,7 @@ def run_circuit(
 
     if compiler_name == "baseline":
         routing_method = "sabre"
+        layout_method = "sabre"
     else:
         routing_method = ARGS.rt
 
@@ -270,6 +274,7 @@ def run_circuit(
         routing_method=routing_method,
         seed_transpiler=seed,
         opt_level=ARGS.opt,
+        heuristic=ARGS.heuristic,
     )
     layout = tqc.layout
     final_layout = layout.final_virtual_layout(filter_ancillas=True)
@@ -310,6 +315,7 @@ def main():
     conf = ControllerConfig(
         dev.configuration().n_qubits, num_ctrls, strategy=MapStratety.CONNECT, cm=cm
     )
+    # evaluator = EvalV2(conf)
     evaluator = Eval(conf)
 
     compiler_name_lst = parse_compiler_methods(ARGS.comp)
@@ -332,7 +338,7 @@ def main():
                     name,
                 )
                 for qc in qc_lst
-                for layout_method in ["sabre"]
+                for layout_method in ["dqcmap"]
                 for name in compiler_name_lst
             )
             # print(results)
@@ -340,7 +346,7 @@ def main():
         else:
             results = []
             for qc in qc_lst:
-                for layout_method in ["sabre"]:
+                for layout_method in ["dqcmap"]:
                     for name in compiler_name_lst:
                         res = run_circuit(
                             qc,
