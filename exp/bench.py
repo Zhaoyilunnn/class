@@ -1,4 +1,5 @@
 import argparse
+import csv
 import logging
 import os
 from dataclasses import dataclass
@@ -220,7 +221,7 @@ class Result:
     depth: int = 0
 
 
-def process_results(result_lst: List[Result | None], num_qubits: int):
+def process_results(result_lst: List[Result | None], num_qubits: int, csv_writer):
     perc_inter_dict = {}
     runtime_dict = {}
     num_op_dict = {}
@@ -246,6 +247,7 @@ def process_results(result_lst: List[Result | None], num_qubits: int):
         num_op = np.mean(num_op_dict[name])
         depth = np.mean(depth_dict[name])
         print(f"{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}")
+        csv_writer.writerow([num_qubits, name, percent, runtime, num_op, depth])
 
 
 def run_circuit(
@@ -321,45 +323,59 @@ def main():
     compiler_name_lst = parse_compiler_methods(ARGS.comp)
 
     # print result table header
-    print("num_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth")
+    with open(
+        f"exp/{ARGS.comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}.csv", "w"
+    ) as f:
+        print("num_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth")
+        csv_writer = csv.writer(f)
+        csv_writer.writerow(
+            [
+                "num_qubits",
+                "compiler_type",
+                "percent_inter",
+                "runtime",
+                "num_op",
+                "depth",
+            ]
+        )
 
-    for n in nq_lst:
-        qc_lst = gen_qc(num_circuits, n, n, ARGS.p, False, seed_base=seed)
-        if ARGS.parallel:
-            results = Parallel(n_jobs=-1)(
-                delayed(run_circuit)(
-                    qc,
-                    dev,
-                    seed,
-                    cm,
-                    evaluator,
-                    conf,
-                    layout_method,
-                    name,
+        for n in nq_lst:
+            qc_lst = gen_qc(num_circuits, n, n, ARGS.p, False, seed_base=seed)
+            if ARGS.parallel:
+                results = Parallel(n_jobs=-1)(
+                    delayed(run_circuit)(
+                        qc,
+                        dev,
+                        seed,
+                        cm,
+                        evaluator,
+                        conf,
+                        layout_method,
+                        name,
+                    )
+                    for qc in qc_lst
+                    for layout_method in ["dqcmap"]
+                    for name in compiler_name_lst
                 )
-                for qc in qc_lst
-                for layout_method in ["dqcmap"]
-                for name in compiler_name_lst
-            )
-            # print(results)
-            results = [res for res in results]
-        else:
-            results = []
-            for qc in qc_lst:
-                for layout_method in ["dqcmap"]:
-                    for name in compiler_name_lst:
-                        res = run_circuit(
-                            qc,
-                            dev,
-                            seed,
-                            cm,
-                            evaluator,
-                            conf,
-                            layout_method,
-                            name,
-                        )
-                        results.append(res)
-        process_results(results, n)
+                # print(results)
+                results = [res for res in results]
+            else:
+                results = []
+                for qc in qc_lst:
+                    for layout_method in ["dqcmap"]:
+                        for name in compiler_name_lst:
+                            res = run_circuit(
+                                qc,
+                                dev,
+                                seed,
+                                cm,
+                                evaluator,
+                                conf,
+                                layout_method,
+                                name,
+                            )
+                            results.append(res)
+            process_results(results, n, csv_writer)
 
 
 if __name__ == "__main__":

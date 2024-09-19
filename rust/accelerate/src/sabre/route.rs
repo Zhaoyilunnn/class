@@ -324,10 +324,10 @@ impl<'a, 'b> RoutingState<'a, 'b> {
             self.dqcmap_active_nodes
                 .push(self.dag.dag[node_id].py_node_id);
         }
-        println!(
-            "Updated dqcmap active nodes are {:?}",
-            self.dqcmap_active_nodes
-        );
+        // println!(
+        //     "Updated dqcmap active nodes are {:?}",
+        //     self.dqcmap_active_nodes
+        // );
     }
 
     /// Add swaps to the current set that greedily bring the nearest node together.  This is a
@@ -419,10 +419,10 @@ impl<'a, 'b> RoutingState<'a, 'b> {
         // if there are multiple swaps in `swap_scratch` and the heuristic is DqcMap,
         // calculate dqcmap score and select the smallest one
         if self.heuristic == Heuristic::DqcMap && self.swap_scratch.len() > 1 {
-            println!(
-                "Checking dqcmap scores for {} swaps",
-                self.swap_scratch.len()
-            );
+            // println!(
+            //     "Checking dqcmap scores for {} swaps",
+            //     self.swap_scratch.len()
+            // );
             let mut max_dqcmap_score = i32::MIN;
             let mut best_swaps: Vec<[PhysicalQubit; 2]> = Vec::new();
 
@@ -431,7 +431,7 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                     &vec![swap[0].index() as i32, swap[1].index() as i32],
                     &self.dqcmap_active_nodes,
                 ) {
-                    println!("Score of swap: {:?} is: {}", swap, score);
+                    // println!("Score of swap: {:?} is: {}", swap, score);
                     if score > max_dqcmap_score + DQC_SWAP_DELTA {
                         max_dqcmap_score = score;
                         best_swaps.clear();
@@ -442,7 +442,7 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                 }
             }
 
-            println!("Filtered candidate swaps are: {:?}", best_swaps);
+            // println!("Filtered candidate swaps are: {:?}", best_swaps);
             // Randomly choose one from the best swaps
             *best_swaps.choose(&mut self.rng).unwrap()
         } else {
@@ -681,12 +681,12 @@ pub fn swap_map_trial(
         state.qubits_decay.fill(1.);
         routable_nodes.clear();
     }
-    if let Some(num_fb) = state.get_total_cross_ctrl_fb() {
-        println!(
-            "Total number of cross-ctrl feedbacks after this swap_map_trial is: {}",
-            num_fb
-        );
-    }
+    // if let Some(num_fb) = state.get_total_cross_ctrl_fb() {
+    //     println!(
+    //         "Total number of cross-ctrl feedbacks after this swap_map_trial is: {}",
+    //         num_fb
+    //     );
+    // }
     (
         SabreResult {
             map: SwapMap { map: state.out_map },
