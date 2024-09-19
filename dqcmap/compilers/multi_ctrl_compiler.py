@@ -92,10 +92,7 @@ class MultiCtrlCompiler(BaseCompiler):
             )
         elif opt_level == 6:
             # tqcs = []
-            # initial_layouts = [
-            #     mapping(self._conf, circ_prop, mapper_name="kl_partition")
-            #     for _ in range(5)
-            # ]
+            # initial_layouts = mapping(self._conf, circ_prop, mapper_name="two_step") # 20 iterations
             # for initial_layout in initial_layouts:
             #     pm = generate_dqcmap_pass_manager(
             #         optimization_level=1,
@@ -113,10 +110,12 @@ class MultiCtrlCompiler(BaseCompiler):
             #     tqc = pm.run(qc)
             #     tqcs.append(tqc)
             # return min(tqcs, key=lambda tqc: len(tqc))
-            initial_layouts = [
-                mapping(self._conf, circ_prop, mapper_name="kl_partition")
-                for _ in range(1)
-            ]
+
+            initial_layouts = mapping(self._conf, circ_prop, mapper_name="two_step")
+            # initial_layouts = [
+            #     mapping(self._conf, circ_prop, mapper_name="kl_partition")
+            #     for _ in range(1)
+            # ]
 
             pm = generate_dqcmap_pass_manager(
                 optimization_level=1,
