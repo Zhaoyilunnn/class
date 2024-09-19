@@ -46,7 +46,7 @@ impl CifPairs {
     pub fn get_swap_involved_pairs(
         &self,
         swap: &Vec<i32>,
-        gate_order: &Vec<usize>,
+        active_nodes: &Vec<usize>,
     ) -> Vec<Vec<i32>> {
         if swap.len() != 2 {
             panic!("Swap must contain exactly two elements");
@@ -54,7 +54,7 @@ impl CifPairs {
 
         let mut involved_pairs = Vec::new();
         for (py_node_id, node_pairs) in &self.pairs {
-            if !gate_order.contains(py_node_id) {
+            if active_nodes.contains(py_node_id) {
                 for pair in node_pairs {
                     if pair.contains(&swap[0]) || pair.contains(&swap[1]) {
                         involved_pairs.push(pair.clone());
@@ -67,13 +67,13 @@ impl CifPairs {
     }
 
     /// Apply the selected swap to cif_pairs, essentially update corresponding indexes
-    pub fn apply_swap(&mut self, swap: &Vec<i32>, gate_order: &Vec<usize>) {
+    pub fn apply_swap(&mut self, swap: &Vec<i32>, active_nodes: &Vec<usize>) {
         if swap.len() != 2 {
             panic!("Swap must contain exactly two elements");
         }
 
         for (py_node_id, node_pairs) in self.pairs.iter_mut() {
-            if !gate_order.contains(py_node_id) {
+            if active_nodes.contains(py_node_id) {
                 for pair in node_pairs.iter_mut() {
                     for q in pair {
                         if *q == swap[0] {
@@ -103,10 +103,10 @@ mod tests {
         let cif_pairs: CifPairs = CifPairs { pairs: pairs_map };
 
         let swap: Vec<i32> = vec![1, 5];
-        let gate_order: Vec<usize> = vec![];
-        let gate_order_2: Vec<usize> = vec![2];
-        let mut result: Vec<Vec<i32>> = cif_pairs.get_swap_involved_pairs(&swap, &gate_order);
-        let mut result_2: Vec<Vec<i32>> = cif_pairs.get_swap_involved_pairs(&swap, &gate_order_2);
+        let active_nodes: Vec<usize> = vec![1, 2];
+        let active_nodes_2: Vec<usize> = vec![1];
+        let mut result: Vec<Vec<i32>> = cif_pairs.get_swap_involved_pairs(&swap, &active_nodes);
+        let mut result_2: Vec<Vec<i32>> = cif_pairs.get_swap_involved_pairs(&swap, &active_nodes_2);
         assert_eq!(
             result.sort(),
             vec![vec![1, 2], vec![5, 6], vec![1, 6]].sort()
@@ -114,20 +114,20 @@ mod tests {
         assert_eq!(result_2.sort(), vec![vec![1, 2], vec![1, 6]].sort());
 
         let swap: Vec<i32> = vec![3, 6];
-        let mut result: Vec<Vec<i32>> = cif_pairs.get_swap_involved_pairs(&swap, &gate_order);
+        let mut result: Vec<Vec<i32>> = cif_pairs.get_swap_involved_pairs(&swap, &active_nodes);
         assert_eq!(
             result.sort(),
             vec![vec![3, 4], vec![5, 6], vec![1, 6]].sort()
         );
 
         let swap: Vec<i32> = vec![7, 8];
-        let result: Vec<Vec<i32>> = cif_pairs.get_swap_involved_pairs(&swap, &gate_order);
+        let result: Vec<Vec<i32>> = cif_pairs.get_swap_involved_pairs(&swap, &active_nodes);
         assert!(result.is_empty());
 
         let invalid_swap: Vec<i32> = vec![1];
         let result: Result<Vec<Vec<i32>>, Box<dyn std::any::Any + Send>> =
             std::panic::catch_unwind(|| {
-                cif_pairs.get_swap_involved_pairs(&invalid_swap, &gate_order)
+                cif_pairs.get_swap_involved_pairs(&invalid_swap, &active_nodes)
             });
         assert!(result.is_err());
     }

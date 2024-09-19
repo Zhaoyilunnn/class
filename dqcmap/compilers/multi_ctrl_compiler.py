@@ -115,7 +115,7 @@ class MultiCtrlCompiler(BaseCompiler):
             # return min(tqcs, key=lambda tqc: len(tqc))
             initial_layouts = [
                 mapping(self._conf, circ_prop, mapper_name="kl_partition")
-                for _ in range(5)
+                for _ in range(1)
             ]
 
             pm = generate_dqcmap_pass_manager(

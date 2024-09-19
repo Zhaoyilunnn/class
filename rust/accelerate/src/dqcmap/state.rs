@@ -61,7 +61,7 @@ impl DqcMapState {
     /// 0: no additional cross-controller feedback is introduced
     /// -1: one additional cross-controller feedback is introduced
     /// etc
-    pub fn score(&self, swap: &Vec<i32>, gate_order: &Vec<usize>) -> Option<i32> {
+    pub fn score(&self, swap: &Vec<i32>, active_nodes: &Vec<usize>) -> Option<i32> {
         let ctrl2pq = self.ctrl2pq.as_ref()?;
         let ctrl0 = ctrl2pq.get_controller_by_qubit(swap[0])?;
         let ctrl1 = ctrl2pq.get_controller_by_qubit(swap[1])?;
@@ -70,7 +70,8 @@ impl DqcMapState {
             // controllers, we count the number of inter-controller feedbacks
             // before and after this swap, then we use the difference as the score
             let cif_pairs = self.cif_pairs.as_ref()?;
-            let involved_pairs: Vec<Vec<i32>> = cif_pairs.get_swap_involved_pairs(swap, gate_order);
+            let involved_pairs: Vec<Vec<i32>> =
+                cif_pairs.get_swap_involved_pairs(swap, active_nodes);
             let swapped_pairs: Vec<Vec<i32>> = swap_involved_pairs(&involved_pairs, swap);
             let count_inv: i32 = count_ctrl_pairs(&involved_pairs, ctrl2pq, ctrl0, ctrl1);
             let count_swapped: i32 = count_ctrl_pairs(&swapped_pairs, ctrl2pq, ctrl0, ctrl1);
@@ -80,9 +81,9 @@ impl DqcMapState {
         }
     }
 
-    pub fn apply_swap(&mut self, swap: &Vec<i32>, gate_order: &Vec<usize>) {
+    pub fn apply_swap(&mut self, swap: &Vec<i32>, active_nodes: &Vec<usize>) {
         if let Some(cif_pairs) = self.cif_pairs.as_mut() {
-            cif_pairs.apply_swap(swap, gate_order);
+            cif_pairs.apply_swap(swap, active_nodes);
         }
     }
 
@@ -129,7 +130,7 @@ mod tests {
         // Set up a Ctrl2Pq instance with mock controller mappings
         let mut ctrl2pq_map: HashMap<i32, Vec<i32>> = HashMap::new();
         let mut reverse_map: HashMap<i32, i32> = HashMap::new();
-        let gate_order: Vec<usize> = Vec::new();
+        let gate_order: Vec<usize> = vec![1, 2];
 
         // Controller 1 controls qubits 0 and 1
         ctrl2pq_map.insert(1, vec![0, 1]);

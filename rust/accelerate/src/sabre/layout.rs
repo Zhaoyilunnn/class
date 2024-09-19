@@ -20,6 +20,8 @@ use rand::prelude::*;
 use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
 
+use crate::dqcmap::cif_pairs::CifPairs;
+use crate::dqcmap::ctrl_to_pq::Ctrl2Pq;
 use crate::getenv_use_multiple_threads;
 use crate::nlayout::{NLayout, PhysicalQubit};
 
@@ -30,7 +32,7 @@ use super::swap_map::SwapMap;
 use super::{Heuristic, NodeBlockResults, SabreResult};
 
 #[pyfunction]
-#[pyo3(signature = (dag, neighbor_table, distance_matrix, heuristic, max_iterations, num_swap_trials, num_random_trials, seed=None, partial_layouts=vec![]))]
+#[pyo3(signature = (dag, neighbor_table, distance_matrix, heuristic, max_iterations, num_swap_trials, num_random_trials, seed=None, partial_layouts=vec![], cif_pairs=None, ctrl2pq=None))]
 pub fn sabre_layout_and_routing(
     py: Python,
     dag: &SabreDAG,
@@ -42,6 +44,8 @@ pub fn sabre_layout_and_routing(
     num_random_trials: usize,
     seed: Option<u64>,
     mut partial_layouts: Vec<Vec<Option<u32>>>,
+    cif_pairs: Option<CifPairs>,
+    ctrl2pq: Option<Ctrl2Pq>,
 ) -> (NLayout, PyObject, (SwapMap, PyObject, NodeBlockResults)) {
     let run_in_parallel = getenv_use_multiple_threads();
     let target = RoutingTargetView {
@@ -76,6 +80,8 @@ pub fn sabre_layout_and_routing(
                         num_swap_trials,
                         run_in_parallel,
                         &starting_layouts[index],
+                        cif_pairs.clone(),
+                        ctrl2pq.clone(),
                     ),
                 )
             })
@@ -101,6 +107,8 @@ pub fn sabre_layout_and_routing(
                     num_swap_trials,
                     run_in_parallel,
                     &starting_layouts[index],
+                    cif_pairs.clone(),
+                    ctrl2pq.clone(),
                 )
             })
             .min_by_key(|(_, _, result)| result.map.map.values().map(|x| x.len()).sum::<usize>())
@@ -126,6 +134,8 @@ fn layout_trial(
     num_swap_trials: usize,
     run_swap_in_parallel: bool,
     starting_layout: &[Option<u32>],
+    cif_pairs: Option<CifPairs>,
+    ctrl2pq: Option<Ctrl2Pq>,
 ) -> (NLayout, Vec<PhysicalQubit>, SabreResult) {
     let num_physical_qubits: u32 = target.neighbors.num_qubits().try_into().unwrap();
     let mut rng = Pcg64Mcg::seed_from_u64(seed);
@@ -193,8 +203,8 @@ fn layout_trial(
                 heuristic,
                 &initial_layout,
                 routing_seed,
-                None,
-                None,
+                cif_pairs.as_ref(),
+                ctrl2pq.as_ref(),
             );
             initial_layout = final_layout;
         }
@@ -208,8 +218,8 @@ fn layout_trial(
         Some(seed),
         num_swap_trials,
         Some(run_swap_in_parallel),
-        None,
-        None,
+        cif_pairs,
+        ctrl2pq,
     );
     let final_permutation = initial_layout
         .iter_physical()

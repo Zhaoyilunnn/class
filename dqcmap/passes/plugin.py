@@ -58,6 +58,8 @@ class DqcMapLayoutPlugin(PassManagerStagePlugin):
                 sabre_starting_layouts=getattr(
                     pass_manager_config, "sabre_starting_layouts"
                 ),
+                ctrl_conf=getattr(pass_manager_config, "ctrl_conf"),
+                heuristic=getattr(pass_manager_config, "heuristic"),
             )
         elif optimization_level == 2:
             layout_pass = SabreLayout(

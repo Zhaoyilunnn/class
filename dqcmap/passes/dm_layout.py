@@ -18,6 +18,7 @@ import dataclasses
 import functools
 import logging
 import time
+from typing import Optional
 
 import numpy as np
 import rustworkx as rx
@@ -42,6 +43,7 @@ from qiskit.transpiler.passmanager import PassManager
 from qiskit.transpiler.target import Target
 from qiskit.utils.parallel import CPU_COUNT
 
+from dqcmap._accelerate.dqcmap import CifPairs, Ctrl2Pq
 from dqcmap._accelerate.nlayout import NLayout
 from dqcmap._accelerate.sabre import (
     Heuristic,
@@ -49,65 +51,11 @@ from dqcmap._accelerate.sabre import (
     SabreDAG,
     sabre_layout_and_routing,
 )
+from dqcmap.controller import ControllerConfig
+
+from .dm_swap import _build_sabre_dag
 
 logger = logging.getLogger(__name__)
-
-
-def _build_sabre_dag(dag, num_physical_qubits, qubit_indices):
-    from qiskit.converters import circuit_to_dag
-
-    # Maps id(block): circuit_to_dag(block) for all descendant blocks
-    circuit_to_dag_dict = {}
-
-    def recurse(block, block_qubit_indices):
-        block_id = id(block)
-        if block_id in circuit_to_dag_dict:
-            block_dag = circuit_to_dag_dict[block_id]
-        else:
-            block_dag = circuit_to_dag(block)
-            circuit_to_dag_dict[block_id] = block_dag
-        return process_dag(block_dag, block_qubit_indices)
-
-    def process_dag(block_dag, wire_map):
-        dag_list = []
-        node_blocks = {}
-        for node in block_dag.topological_op_nodes():
-            cargs_bits = set(node.cargs)
-            if node.op.condition is not None:
-                cargs_bits.update(condition_resources(node.op.condition).clbits)
-            if isinstance(node.op, SwitchCaseOp):
-                target = node.op.target
-                if isinstance(target, Clbit):
-                    cargs_bits.add(target)
-                elif isinstance(target, ClassicalRegister):
-                    cargs_bits.update(target)
-                else:  # Expr
-                    cargs_bits.update(node_resources(target).clbits)
-            cargs = {block_dag.find_bit(x).index for x in cargs_bits}
-            if isinstance(node.op, ControlFlowOp):
-                node_blocks[node._node_id] = [
-                    recurse(
-                        block,
-                        {
-                            inner: wire_map[outer]
-                            for inner, outer in zip(block.qubits, node.qargs)
-                        },
-                    )
-                    for block in node.op.blocks
-                ]
-            dag_list.append(
-                (
-                    node._node_id,
-                    [wire_map[x] for x in node.qargs],
-                    cargs,
-                    getattr(node.op, "_directive", False),
-                )
-            )
-        return SabreDAG(
-            num_physical_qubits, block_dag.num_clbits(), dag_list, node_blocks
-        )
-
-    return process_dag(dag, qubit_indices), circuit_to_dag_dict
 
 
 class DqcMapLayout(TransformationPass):
@@ -182,6 +130,8 @@ class DqcMapLayout(TransformationPass):
         layout_trials=None,
         skip_routing=False,
         sabre_starting_layouts=None,
+        ctrl_conf: Optional[ControllerConfig] = None,
+        heuristic="decay",
     ):
         """SabreLayout initializer.
 
@@ -263,6 +213,8 @@ class DqcMapLayout(TransformationPass):
             )
 
         self._sabre_starting_layouts = sabre_starting_layouts
+        self._ctrl_to_pq = ctrl_conf.ctrl_to_pq if ctrl_conf is not None else None
+        self._heuristic = heuristic
 
     def run(self, dag):
         """Run the SabreLayout pass on `dag`.
@@ -478,22 +430,34 @@ class DqcMapLayout(TransformationPass):
                     out_layout[pos] = coupling_map_reverse_mapping[phys]
                 partial_layouts.append(out_layout)
 
-        sabre_dag, circuit_to_dag_dict = _build_sabre_dag(
+        (sabre_dag, circuit_to_dag_dict), cif_pairs = _build_sabre_dag(
             dag,
             coupling_map.size(),
             original_qubit_indices,
         )
+        cif_pairs = CifPairs(cif_pairs)
+        ctrl_to_pq = Ctrl2Pq(self._ctrl_to_pq)
+        if self._heuristic == "decay":
+            heuristic = Heuristic.Decay
+        elif self._heuristic == "dqcmap":
+            heuristic = Heuristic.DqcMap
+        else:
+            raise ValueError(
+                f"DqcMapSwap only supports heuristic `decay` and `dqcmap`. Found {self._heuristic} "
+            )
         sabre_start = time.perf_counter()
         (initial_layout, final_permutation, sabre_result) = sabre_layout_and_routing(
             sabre_dag,
             neighbor_table,
             dist_matrix,
-            Heuristic.Decay,
+            heuristic,
             self.max_iterations,
             self.swap_trials,
             self.layout_trials,
             self.seed,
             partial_layouts,
+            cif_pairs=cif_pairs,
+            ctrl2pq=ctrl_to_pq,
         )
         sabre_stop = time.perf_counter()
         logger.debug(

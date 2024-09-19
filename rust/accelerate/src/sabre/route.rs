@@ -53,7 +53,7 @@ const EXTENDED_SET_WEIGHT: f64 = 0.5;
 /// Number of trials for control flow block swap epilogues.
 const SWAP_EPILOGUE_TRIALS: usize = 4;
 /// Delta for selecting a swap for less inter-controller feedback
-const DQC_SWAP_DELTA: i32 = 0;
+const DQC_SWAP_DELTA: i32 = 8;
 
 /// A view object onto a full routing target.  This is cheap to clone and to replace components
 /// within it; cloning only duplicates the inner references and not the data objects beneath.  This
@@ -96,6 +96,7 @@ struct RoutingState<'a, 'b> {
     /// DqcMapState, which is basically a scorer that calculates difference of the number
     /// of cross-controller feedback before and after a swap
     dqcmap_state: DqcMapState,
+    dqcmap_active_nodes: Vec<usize>,
 }
 
 impl<'a, 'b> RoutingState<'a, 'b> {
@@ -120,7 +121,8 @@ impl<'a, 'b> RoutingState<'a, 'b> {
             .map(|&x| x as i32)
             .collect();
         // println!("applying swap: {:?}", swap_vec);
-        self.dqcmap_state.apply_swap(&swap_vec, &self.gate_order);
+        self.dqcmap_state
+            .apply_swap(&swap_vec, &self.dqcmap_active_nodes);
         // if let Some(pairs) = self.dqcmap_state.cif_pairs.as_ref() {
         //     println!("Current cif_pairs are: {:?}", pairs.pairs);
         // }
@@ -314,6 +316,18 @@ impl<'a, 'b> RoutingState<'a, 'b> {
         for (node, amount) in decremented.iter() {
             self.required_predecessors[*node] += *amount;
         }
+        // to_visit now contains nodes that need to be considered
+        // when calculating the inter-controller feedback overhead
+        // caused by a swap
+        self.dqcmap_active_nodes.clear();
+        for node_id in to_visit {
+            self.dqcmap_active_nodes
+                .push(self.dag.dag[node_id].py_node_id);
+        }
+        println!(
+            "Updated dqcmap active nodes are {:?}",
+            self.dqcmap_active_nodes
+        );
     }
 
     /// Add swaps to the current set that greedily bring the nearest node together.  This is a
@@ -405,19 +419,19 @@ impl<'a, 'b> RoutingState<'a, 'b> {
         // if there are multiple swaps in `swap_scratch` and the heuristic is DqcMap,
         // calculate dqcmap score and select the smallest one
         if self.heuristic == Heuristic::DqcMap && self.swap_scratch.len() > 1 {
-            // println!(
-            //     "Checking dqcmap scores for {} swaps",
-            //     self.swap_scratch.len()
-            // );
+            println!(
+                "Checking dqcmap scores for {} swaps",
+                self.swap_scratch.len()
+            );
             let mut max_dqcmap_score = i32::MIN;
             let mut best_swaps: Vec<[PhysicalQubit; 2]> = Vec::new();
 
             for &swap in &self.swap_scratch {
                 if let Some(score) = self.dqcmap_state.score(
                     &vec![swap[0].index() as i32, swap[1].index() as i32],
-                    &self.gate_order,
+                    &self.dqcmap_active_nodes,
                 ) {
-                    // println!("Score of swap: {:?} is: {}", swap, score);
+                    println!("Score of swap: {:?} is: {}", swap, score);
                     if score > max_dqcmap_score + DQC_SWAP_DELTA {
                         max_dqcmap_score = score;
                         best_swaps.clear();
@@ -428,7 +442,7 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                 }
             }
 
-            // println!("Filtered candidate swaps are: {:?}", best_swaps);
+            println!("Filtered candidate swaps are: {:?}", best_swaps);
             // Randomly choose one from the best swaps
             *best_swaps.choose(&mut self.rng).unwrap()
         } else {
@@ -613,6 +627,7 @@ pub fn swap_map_trial(
         rng: Pcg64Mcg::seed_from_u64(seed),
         seed,
         dqcmap_state,
+        dqcmap_active_nodes: Vec::with_capacity(dag.dag.node_count()),
     };
     for node in dag.dag.node_indices() {
         for edge in dag.dag.edges(node) {
@@ -666,12 +681,12 @@ pub fn swap_map_trial(
         state.qubits_decay.fill(1.);
         routable_nodes.clear();
     }
-    // if let Some(num_fb) = state.get_total_cross_ctrl_fb() {
-    //     println!(
-    //         "Total number of cross-ctrl feedbacks after this swap_map_trial is: {}",
-    //         num_fb
-    //     );
-    // }
+    if let Some(num_fb) = state.get_total_cross_ctrl_fb() {
+        println!(
+            "Total number of cross-ctrl feedbacks after this swap_map_trial is: {}",
+            num_fb
+        );
+    }
     (
         SabreResult {
             map: SwapMap { map: state.out_map },
