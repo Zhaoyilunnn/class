@@ -207,3 +207,80 @@ class IntraControllerOptimizer(BaseMapper):
             if physical_qubit in pqs:
                 return ctrl
         raise ValueError(f"Physical qubit {physical_qubit} not found in any controller")
+
+
+class RandomIntraControllerMapper(BaseMapper):
+    """
+    Randomly map logical qubits to physical qubits within each controller.
+
+    This mapper takes an initial mapping and randomly reassigns logical qubits
+    to physical qubits within the same controller. It maintains the distribution
+    of logical qubits across controllers from the initial mapping, but shuffles
+    their assignments within each controller.
+
+    Attributes:
+        ctrl_to_pq (Dict[int, List[int]]): Mapping of controllers to physical qubits.
+        n_logical (int): Number of logical qubits in the circuit.
+        n_controllers (int): Number of controllers in the quantum device.
+        all_physical_qubits (List[int]): List of all physical qubit ids.
+
+    Methods:
+        run(initial_mapping: List[int]) -> List[int]:
+            Performs the random intra-controller mapping.
+        get_ctrl_to_logical(mapping: List[int]) -> Dict[int, List[int]]:
+            Groups logical qubits by their assigned controllers.
+        get_controller(physical_qubit: int) -> int:
+            Determines which controller a physical qubit belongs to.
+    """
+
+    def __init__(self, ctrl_conf: ControllerConfig, circ_prop: CircProperty):
+        super().__init__(ctrl_conf, circ_prop)
+        self.ctrl_to_pq = self._ctrl_conf.ctrl_to_pq
+        self.n_logical = self._circ_prop.num_qubits
+        self.n_controllers = len(self.ctrl_to_pq)
+        self.all_physical_qubits = [
+            pq for pqs in self.ctrl_to_pq.values() for pq in pqs
+        ]
+
+    def run(self, initial_mapping: List[int]) -> List[int]:
+        ctrl_to_logical = self.get_ctrl_to_logical(initial_mapping)
+        new_mapping = [-1] * self.n_logical
+
+        for ctrl, logical_qubits in ctrl_to_logical.items():
+            physical_qubits = self.ctrl_to_pq[ctrl].copy()
+            random.shuffle(physical_qubits)
+
+            for logical_qubit in logical_qubits:
+                if physical_qubits:
+                    new_mapping[logical_qubit] = physical_qubits.pop()
+                else:
+                    print(f"Error: Not enough physical qubits for controller {ctrl}")
+                    return initial_mapping
+
+        # Handle any unmapped qubits
+        unmapped_logical = [i for i, pq in enumerate(new_mapping) if pq == -1]
+        available_physical = set(self.all_physical_qubits) - set(new_mapping)
+
+        for logical in unmapped_logical:
+            if available_physical:
+                physical = available_physical.pop()
+                new_mapping[logical] = physical
+                print(f"Remapped logical qubit {logical} to physical qubit {physical}")
+            else:
+                print(f"Error: Unable to map logical qubit {logical}")
+                return initial_mapping
+
+        return new_mapping
+
+    def get_ctrl_to_logical(self, mapping: List[int]) -> Dict[int, List[int]]:
+        ctrl_to_logical = defaultdict(list)
+        for logical, physical in enumerate(mapping):
+            ctrl = self.get_controller(physical)
+            ctrl_to_logical[ctrl].append(logical)
+        return ctrl_to_logical
+
+    def get_controller(self, physical_qubit: int) -> int:
+        for ctrl, pqs in self.ctrl_to_pq.items():
+            if physical_qubit in pqs:
+                return ctrl
+        raise ValueError(f"Physical qubit {physical_qubit} not found in any controller")
