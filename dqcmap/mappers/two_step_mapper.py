@@ -1,27 +1,25 @@
-from typing import Dict, List, Set, Tuple
+from typing import List
 
 from dqcmap.basemapper import BaseMapper
 from dqcmap.circuit_prop import CircProperty
 from dqcmap.controller import ControllerConfig
 from dqcmap.mappers.heuristic_graphpartition_mapper import HeuristicMapper
-from dqcmap.mappers.intra_controller_optimizer import IntraControllerOptimizer
-from dqcmap.mappers.iter_KL_mapper import KLMapper
+from dqcmap.mappers.intra_controller_optimizer import RandomIntraControllerMapper
 
 
 class TwoStepMapper(BaseMapper):
     def __init__(self, ctrl_conf: ControllerConfig, circ_prop: CircProperty):
-        # first mapper is used to minimize the cif pairs across controllers
+        super().__init__(ctrl_conf, circ_prop)
+        # First mapper is used to minimize the cif pairs across controllers
         self.heuristic_mapper = HeuristicMapper(ctrl_conf, circ_prop)
-        # self.KL_mapper = KLMapper(ctrl_conf, circ_prop)
-        # print("----------------------start intra_optimizer----------------------")
-        # The intra_controller_optimizer is used to optimize the initial mapping within each controller by minimizing the number of connections between qubits for two-qubit gates.
-        self.intra_optimizer = IntraControllerOptimizer(ctrl_conf, circ_prop)
-        # print("----------------------end intra_optimizer----------------------")
+        # Second mapper randomly reassigns qubits within each controller
+        self.random_intra_mapper = RandomIntraControllerMapper(ctrl_conf, circ_prop)
 
     def run(self) -> List[int]:
+        # First step: Apply HeuristicMapper
         initial_mapping = self.heuristic_mapper.run()
-        # initial_mapping = self.KL_mapper.run()
-        # print("initial_mapping", initial_mapping)
-        optimized_mapping = self.intra_optimizer.run(initial_mapping)
-        # print("optimized_mapping", optimized_mapping)
+
+        # Second step: Apply RandomIntraControllerMapper
+        optimized_mapping = self.random_intra_mapper.run(initial_mapping)
+
         return optimized_mapping
