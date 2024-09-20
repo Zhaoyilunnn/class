@@ -66,14 +66,15 @@ impl CifPairs {
         involved_pairs
     }
 
-    /// Apply the selected swap to cif_pairs, essentially update corresponding indexes
-    pub fn apply_swap(&mut self, swap: &Vec<i32>, active_nodes: &Vec<usize>) {
+    /// Apply the selected swap to cif_pairs that are not in gate_order
+    /// essentially update corresponding indexes
+    pub fn apply_swap(&mut self, swap: &Vec<i32>, gate_order: &Vec<usize>) {
         if swap.len() != 2 {
             panic!("Swap must contain exactly two elements");
         }
 
         for (py_node_id, node_pairs) in self.pairs.iter_mut() {
-            if active_nodes.contains(py_node_id) {
+            if !gate_order.contains(py_node_id) {
                 for pair in node_pairs.iter_mut() {
                     for q in pair {
                         if *q == swap[0] {

@@ -81,9 +81,9 @@ impl DqcMapState {
         }
     }
 
-    pub fn apply_swap(&mut self, swap: &Vec<i32>, active_nodes: &Vec<usize>) {
+    pub fn apply_swap(&mut self, swap: &Vec<i32>, gate_order: &Vec<usize>) {
         if let Some(cif_pairs) = self.cif_pairs.as_mut() {
-            cif_pairs.apply_swap(swap, active_nodes);
+            cif_pairs.apply_swap(swap, gate_order);
         }
     }
 

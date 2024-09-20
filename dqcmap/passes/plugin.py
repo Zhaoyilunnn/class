@@ -154,7 +154,8 @@ class DqcMapRoutePlugin(PassManagerStagePlugin):
                 coupling_map_routing,
                 heuristic=heuristic,
                 seed=seed_transpiler,
-                trials=5,
+                trials=1,  # for ease of debugging in rust
+                # trials=5,
                 ctrl_conf=ctrl_conf,
                 circ_prop=circ_prop,
             )

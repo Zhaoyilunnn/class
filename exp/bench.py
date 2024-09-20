@@ -90,6 +90,9 @@ def get_args():
     parser.add_argument(
         "--heuristic", default="dqcmap", type=str, help="Heuristic for dqcswap routing."
     )
+    parser.add_argument(
+        "--wr", default=0, type=int, help="Whether to write results to csv."
+    )
 
     return parser.parse_args()
 
@@ -247,7 +250,8 @@ def process_results(result_lst: List[Result | None], num_qubits: int, csv_writer
         num_op = np.mean(num_op_dict[name])
         depth = np.mean(depth_dict[name])
         print(f"{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}")
-        csv_writer.writerow([num_qubits, name, percent, runtime, num_op, depth])
+        if ARGS.wr and csv_writer is not None:
+            csv_writer.writerow([num_qubits, name, percent, runtime, num_op, depth])
 
 
 def run_circuit(
@@ -327,17 +331,19 @@ def main():
         f"exp/{ARGS.comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}.csv", "w"
     ) as f:
         print("num_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth")
-        csv_writer = csv.writer(f)
-        csv_writer.writerow(
-            [
-                "num_qubits",
-                "compiler_type",
-                "percent_inter",
-                "runtime",
-                "num_op",
-                "depth",
-            ]
-        )
+        csv_writer = None
+        if ARGS.wr:
+            csv_writer = csv.writer(f)
+            csv_writer.writerow(
+                [
+                    "num_qubits",
+                    "compiler_type",
+                    "percent_inter",
+                    "runtime",
+                    "num_op",
+                    "depth",
+                ]
+            )
 
         for n in nq_lst:
             qc_lst = gen_qc(num_circuits, n, n, ARGS.p, False, seed_base=seed)
