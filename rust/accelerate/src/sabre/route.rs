@@ -170,6 +170,7 @@ impl<'a, 'b> RoutingState<'a, 'b> {
         let dag = &self.dag;
         // Iterate through `to_visit`, except we often push new nodes onto the end of it.
         while i < to_visit.len() {
+            debug!("--> current to visit is: {:?}", to_visit);
             let node_id = to_visit[i];
             let node = &dag.dag[node_id];
             i += 1;
@@ -208,6 +209,10 @@ impl<'a, 'b> RoutingState<'a, 'b> {
             // If we reach here, the node is routable.
             self.gate_order.push(node.py_node_id);
             for edge in dag.dag.edges_directed(node_id, Direction::Outgoing) {
+                debug!(
+                    "--> looking for successors of node: {:?}, connected by edge: {:?}",
+                    node_id, edge
+                );
                 let successor_node = edge.target();
                 let successor_index = successor_node.index();
                 self.required_predecessors[successor_index] -= 1;
@@ -336,11 +341,13 @@ impl<'a, 'b> RoutingState<'a, 'b> {
     /// Extract dqcmap active nodes, i.e., the cif nodes that are executable after
     /// a swap is inserted
     fn get_dqcmap_active_nodes(&mut self, swap: [PhysicalQubit; 2]) {
+        debug!("Checking dqcmap active nodes for swap: {:?}", swap);
         self.dqcmap_active_nodes.clear();
         let mut routable_nodes = Vec::<NodeIndex>::with_capacity(2);
 
         // clone all required components and simulate a swap is applied
         let mut front_layer = self.front_layer.clone();
+        debug!("The cloned front layer is: {:?}", front_layer);
         let mut layout = self.layout.clone();
         let mut extended_set = self.extended_set.clone();
         let mut required_predecessors = Vec::from(self.required_predecessors.to_vec());
@@ -351,12 +358,28 @@ impl<'a, 'b> RoutingState<'a, 'b> {
 
         if let Some(node) = self.routable_node_on_qubit_front_layer_in(swap[0], &front_layer) {
             routable_nodes.push(node);
+            debug!(
+                "When getting dqcmap_active_nodes, found routable node on qubit: {:?} in swap: {:?}",
+                swap[1], swap
+            );
         }
         if let Some(node) = self.routable_node_on_qubit_front_layer_in(swap[1], &front_layer) {
             routable_nodes.push(node);
+            debug!(
+                "When getting dqcmap_active_nodes, found routable node on qubit: {:?} in swap: {:?}",
+                swap[0], swap
+            );
         }
 
         if !routable_nodes.is_empty() {
+            info!(
+                "When getting dqcmap active nodes, route nodes in: {:?}",
+                routable_nodes
+            );
+            debug!(
+                "When getting dqcmap_active_nodes, traversing some routable nodes: {:?}",
+                routable_nodes
+            );
             // A similar procedure to `update_route` to find all executable nodes starting from
             // the nodes in `routable_nodes`.
             let mut to_visit = routable_nodes.to_vec();
@@ -366,6 +389,8 @@ impl<'a, 'b> RoutingState<'a, 'b> {
             while i < to_visit.len() {
                 let node_id = to_visit[i];
                 let node = &dag.dag[node_id];
+                debug!("--> traversing node: {:?}", node);
+                debug!("--> dqcmap current to visit is: {:?}", to_visit);
                 i += 1;
 
                 // If the node is a directive that means it can be placed anywhere.
@@ -380,8 +405,8 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                             // gate order.
                             [a, b]
                                 if !self.target.coupling.contains_edge(
-                                    NodeIndex::new(a.to_phys(&self.layout).index()),
-                                    NodeIndex::new(b.to_phys(&self.layout).index()),
+                                    NodeIndex::new(a.to_phys(&layout).index()),
+                                    NodeIndex::new(b.to_phys(&layout).index()),
                                 ) =>
                             {
                                 // 2Q op that cannot be placed. so we move on
@@ -395,6 +420,10 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                 // If we reach here, the node is routable.
                 self.dqcmap_active_nodes.push(node.py_node_id);
                 for edge in dag.dag.edges_directed(node_id, Direction::Outgoing) {
+                    debug!(
+                        "--> looking for successors of node: {:?}, connected by edge: {:?}",
+                        node_id, edge
+                    );
                     let successor_node = edge.target();
                     let successor_index = successor_node.index();
                     required_predecessors[successor_index] -= 1;
@@ -403,6 +432,8 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                     }
                 }
             }
+        } else {
+            debug!("Found no routable nodes after applying swap: {:?}", swap);
         }
     }
 
@@ -494,6 +525,8 @@ impl<'a, 'b> RoutingState<'a, 'b> {
         }
         // if there are multiple swaps in `swap_scratch` and the heuristic is DqcMap,
         // calculate dqcmap score and select the smallest one
+        // if self.heuristic == Heuristic::DqcMap { // this is used for debugging the score results
+        // of all best swaps chosen by original heuristic
         if self.heuristic == Heuristic::DqcMap && self.swap_scratch.len() > 1 {
             debug!(
                 "Checking dqcmap scores for {} swaps",
@@ -734,9 +767,17 @@ pub fn swap_map_trial(
             state.apply_swap(best_swap);
             current_swaps.push(best_swap);
             if let Some(node) = state.routable_node_on_qubit(best_swap[1]) {
+                debug!(
+                    "Find routable node on qubit: {:?} in swap: {:?}",
+                    best_swap[1], best_swap
+                );
                 routable_nodes.push(node);
             }
             if let Some(node) = state.routable_node_on_qubit(best_swap[0]) {
+                debug!(
+                    "Find routable node on qubit: {:?} in swap: {:?}",
+                    best_swap[0], best_swap
+                );
                 routable_nodes.push(node);
             }
             num_search_steps += 1;
@@ -749,6 +790,7 @@ pub fn swap_map_trial(
             }
         }
         if routable_nodes.is_empty() {
+            debug!("Exceed the max number of heuristic-chosen swaps without making progress");
             // If we exceeded the max number of heuristic-chosen swaps without making progress,
             // unwind to the last progress point and greedily swap to bring a node together.
             // Efficiency doesn't matter much; this path never gets taken unless we're unlucky.
@@ -759,6 +801,10 @@ pub fn swap_map_trial(
             let force_routed = state.force_enable_closest_node(&mut current_swaps);
             routable_nodes.push(force_routed);
         }
+        info!(
+            "After applying a swap: {:?}, route nodes in: {:?}",
+            current_swaps, routable_nodes
+        );
         state.update_route(&routable_nodes, current_swaps);
         state.qubits_decay.fill(1.);
         routable_nodes.clear();
