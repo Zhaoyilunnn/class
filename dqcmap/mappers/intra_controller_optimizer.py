@@ -225,7 +225,7 @@ class RandomIntraControllerMapper(BaseMapper):
         all_physical_qubits (List[int]): List of all physical qubit ids.
 
     Methods:
-        run(initial_mapping: List[int]) -> List[int]:
+        run(initial_mapping: List[int], seed: int = None) -> List[int]:
             Performs the random intra-controller mapping.
         get_ctrl_to_logical(mapping: List[int]) -> Dict[int, List[int]]:
             Groups logical qubits by their assigned controllers.
@@ -242,7 +242,9 @@ class RandomIntraControllerMapper(BaseMapper):
             pq for pqs in self.ctrl_to_pq.values() for pq in pqs
         ]
 
-    def run(self, initial_mapping: List[int]) -> List[int]:
+    def run(self, initial_mapping: List[int], seed: int = None) -> List[int]:
+        if seed is not None:
+            random.seed(seed)
         ctrl_to_logical = self.get_ctrl_to_logical(initial_mapping)
         new_mapping = [-1] * self.n_logical
 
