@@ -88,6 +88,12 @@ def get_args():
         help="Routing method. For baseline, it will always be set to `sabre`, for multi_ctrl it will be this argument.",
     )
     parser.add_argument(
+        "--rt-trial",
+        default=5,
+        type=int,
+        help="Number of parallel swap trials during routing",
+    )
+    parser.add_argument(
         "--heuristic", default="dqcmap", type=str, help="Heuristic for dqcswap routing."
     )
     parser.add_argument(
@@ -281,6 +287,7 @@ def run_circuit(
         seed_transpiler=seed,
         opt_level=ARGS.opt,
         heuristic=ARGS.heuristic,
+        swap_trials=ARGS.rt_trial,
     )
     layout = tqc.layout
     final_layout = layout.final_virtual_layout(filter_ancillas=True)
@@ -327,61 +334,64 @@ def main():
     compiler_name_lst = parse_compiler_methods(ARGS.comp)
 
     # print result table header
-    with open(
-        f"exp/{ARGS.comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}.csv", "w"
-    ) as f:
-        print("num_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth")
-        csv_writer = None
-        if ARGS.wr:
-            csv_writer = csv.writer(f)
-            csv_writer.writerow(
-                [
-                    "num_qubits",
-                    "compiler_type",
-                    "percent_inter",
-                    "runtime",
-                    "num_op",
-                    "depth",
-                ]
-            )
+    res_file_name = f"exp/{ARGS.comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}.csv"
+    print("num_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth")
+    csv_writer = None
+    f = None
+    if ARGS.wr:
+        f = open(res_file_name, "w")
+        csv_writer = csv.writer(f)
+        csv_writer.writerow(
+            [
+                "num_qubits",
+                "compiler_type",
+                "percent_inter",
+                "runtime",
+                "num_op",
+                "depth",
+            ]
+        )
 
-        for n in nq_lst:
-            qc_lst = gen_qc(num_circuits, n, n, ARGS.p, False, seed_base=seed)
-            if ARGS.parallel:
-                results = Parallel(n_jobs=-1)(
-                    delayed(run_circuit)(
-                        qc,
-                        dev,
-                        seed,
-                        cm,
-                        evaluator,
-                        conf,
-                        layout_method,
-                        name,
-                    )
-                    for qc in qc_lst
-                    for layout_method in ["dqcmap"]
-                    for name in compiler_name_lst
+    for n in nq_lst:
+        qc_lst = gen_qc(num_circuits, n, n, ARGS.p, False, seed_base=seed)
+        if ARGS.parallel:
+            results = Parallel(n_jobs=-1)(
+                delayed(run_circuit)(
+                    qc,
+                    dev,
+                    seed,
+                    cm,
+                    evaluator,
+                    conf,
+                    layout_method,
+                    name,
                 )
-                # print(results)
-                results = [res for res in results]
-            else:
-                results = []
-                for qc in qc_lst:
-                    for layout_method in ["dqcmap"]:
-                        for name in compiler_name_lst:
-                            res = run_circuit(
-                                qc,
-                                dev,
-                                seed,
-                                cm,
-                                evaluator,
-                                conf,
-                                layout_method,
-                                name,
-                            )
-                            results.append(res)
-            process_results(results, n, csv_writer)
+                for qc in qc_lst
+                for layout_method in ["dqcmap"]
+                for name in compiler_name_lst
+            )
+            # print(results)
+            results = [res for res in results]
+        else:
+            results = []
+            for qc in qc_lst:
+                for layout_method in ["dqcmap"]:
+                    for name in compiler_name_lst:
+                        res = run_circuit(
+                            qc,
+                            dev,
+                            seed,
+                            cm,
+                            evaluator,
+                            conf,
+                            layout_method,
+                            name,
+                        )
+                        results.append(res)
+        process_results(results, n, csv_writer)
+
+    if f:
+        f.close()
 
 
 if __name__ == "__main__":

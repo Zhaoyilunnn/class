@@ -51,7 +51,7 @@ class DqcMapLayoutPlugin(PassManagerStagePlugin):
                 coupling_map,
                 max_iterations=2,
                 seed=pass_manager_config.seed_transpiler,
-                swap_trials=5,
+                swap_trials=getattr(pass_manager_config, "swap_trials", 5),
                 layout_trials=0,
                 skip_routing=pass_manager_config.routing_method is not None
                 and pass_manager_config.routing_method != "sabre",
@@ -154,8 +154,7 @@ class DqcMapRoutePlugin(PassManagerStagePlugin):
                 coupling_map_routing,
                 heuristic=heuristic,
                 seed=seed_transpiler,
-                trials=1,  # for ease of debugging in rust
-                # trials=5,
+                trials=getattr(pass_manager_config, "swap_trials", 5),
                 ctrl_conf=ctrl_conf,
                 circ_prop=circ_prop,
             )

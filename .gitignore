@@ -176,6 +176,7 @@ cython_debug/
 # temp
 temp.*
 *.swp
+nohup.out
 
 # data
 *.csv

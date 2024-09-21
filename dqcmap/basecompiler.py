@@ -24,6 +24,7 @@ class BaseCompiler(ABC):
         seed_transpiler=None,
         opt_level: int = 1,
         heuristic: str = "dqcmap",
+        swap_trials: int = 5,
     ) -> _CircuitsT:
         """
         Run transpilation

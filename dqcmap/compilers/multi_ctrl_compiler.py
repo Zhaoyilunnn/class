@@ -40,6 +40,7 @@ class MultiCtrlCompiler(BaseCompiler):
         seed_transpiler=None,
         opt_level=1,
         heuristic="dqcmap",
+        swap_trials=5,
     ) -> _CircuitsT:
         """
         opt_level (int):
@@ -111,11 +112,11 @@ class MultiCtrlCompiler(BaseCompiler):
             #     tqcs.append(tqc)
             # return min(tqcs, key=lambda tqc: len(tqc))
 
-            initial_layouts = mapping(self._conf, circ_prop, mapper_name="two_step")
-            # initial_layouts = [
-            #     mapping(self._conf, circ_prop, mapper_name="kl_partition")
-            #     for _ in range(1)
-            # ]
+            # initial_layouts = mapping(self._conf, circ_prop, mapper_name="two_step")
+            initial_layouts = [
+                mapping(self._conf, circ_prop, mapper_name="kl_partition")
+                for _ in range(1)
+            ]
 
             pm = generate_dqcmap_pass_manager(
                 optimization_level=1,
@@ -129,6 +130,7 @@ class MultiCtrlCompiler(BaseCompiler):
                 circ_prop=circ_prop,
                 heuristic=heuristic,
                 sabre_starting_layouts=initial_layouts,
+                swap_trials=swap_trials,
             )
 
             tqc = pm.run(qc)
@@ -151,6 +153,7 @@ class MultiCtrlCompiler(BaseCompiler):
             ctrl_conf=self._conf,
             circ_prop=circ_prop,
             heuristic=heuristic,
+            swap_trials=swap_trials,
         )
 
         # print(f"Initial layout is set as: {initial_layout}")

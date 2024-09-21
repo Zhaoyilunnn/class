@@ -21,6 +21,7 @@ class QiskitDefaultCompiler(BaseCompiler):
         seed_transpiler=None,
         opt_level=1,
         heuristic="dqcmap",
+        swap_trials=5,
     ):
         return transpile(
             qc,
