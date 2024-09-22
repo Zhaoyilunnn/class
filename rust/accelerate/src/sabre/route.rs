@@ -10,6 +10,7 @@
 // copyright notice, and modified files need to carry a notice indicating
 // that they have been altered from the originals.
 
+use log::warn;
 use log::{debug, info, trace};
 use std::cmp::Ordering;
 
@@ -501,18 +502,37 @@ impl<'a, 'b> RoutingState<'a, 'b> {
             }
             _ => 0.0,
         };
-        for swap in obtain_swaps(&self.front_layer, self.target.neighbors) {
+
+        let swaps: Vec<[PhysicalQubit; 2]> =
+            obtain_swaps(&self.front_layer, self.target.neighbors).collect();
+        for swap in swaps {
             let score = match self.heuristic {
                 Heuristic::Basic => self.front_layer.score(swap, dist),
                 Heuristic::Lookahead => {
                     self.front_layer.score(swap, dist)
                         + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist)
                 }
-                Heuristic::Decay | Heuristic::DqcMap => {
+                Heuristic::Decay | Heuristic::DM0 => {
                     self.qubits_decay[swap[0].index()].max(self.qubits_decay[swap[1].index()])
                         * (absolute_score
                             + self.front_layer.score(swap, dist)
                             + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist))
+                }
+                Heuristic::DM1 => {
+                    self.get_dqcmap_active_nodes(swap);
+                    if let Some(score) = self.dqcmap_state.score(
+                        &vec![swap[0].index() as i32, swap[1].index() as i32],
+                        &self.dqcmap_active_nodes,
+                    ) {
+                        self.qubits_decay[swap[0].index()].max(self.qubits_decay[swap[1].index()])
+                            * (absolute_score
+                                + self.front_layer.score(swap, dist)
+                                + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist))
+                            - (score as f64)
+                    } else {
+                        warn!("DqcMap score is None, ideally we should not go here.");
+                        0.
+                    }
                 }
             };
             if score < min_score - BEST_EPSILON {
@@ -525,9 +545,9 @@ impl<'a, 'b> RoutingState<'a, 'b> {
         }
         // if there are multiple swaps in `swap_scratch` and the heuristic is DqcMap,
         // calculate dqcmap score and select the smallest one
-        // if self.heuristic == Heuristic::DqcMap { // this is used for debugging the score results
+        // if self.heuristic == Heuristic::DM0 { // this is used for debugging the score results
         // of all best swaps chosen by original heuristic
-        if self.heuristic == Heuristic::DqcMap && self.swap_scratch.len() > 1 {
+        if self.heuristic == Heuristic::DM0 && self.swap_scratch.len() > 1 {
             debug!(
                 "Checking dqcmap scores for {} swaps",
                 self.swap_scratch.len()

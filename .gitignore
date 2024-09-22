@@ -170,8 +170,8 @@ cython_debug/
 
 # hidden
 .vscode
-.stderr
-.stdout
+*.stderr
+*.stdout
 
 # temp
 temp.*
