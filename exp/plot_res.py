@@ -1,3 +1,4 @@
+import argparse
 import os
 
 import matplotlib.pyplot as plt
@@ -46,25 +47,16 @@ def normalize_data(df):
 
 
 def plot_data(df):
-    ## currently we have a fixed source_file to label mapping
-    label_dict = {
-        "baseline_dqcswap_dqcmap_opt_3.csv": "baseline",
-        "multi_ctrl_dqcswap_decay_opt_3.csv": "map",
-        "multi_ctrl_dqcswap_dqcmap_opt_3.csv": "map + route",
-        "multi_ctrl_dqcswap_decay_opt_6.csv": "map + layout",
-        "multi_ctrl_dqcswap_dqcmap_opt_6.csv": "map + layout + route",
-    }
-
     # unique_files = df["source_file"].unique()
-    unique_files = [
-        "baseline_dqcswap_dqcmap_opt_3.csv",
-        "multi_ctrl_dqcswap_decay_opt_3.csv",
-        "multi_ctrl_dqcswap_dqcmap_opt_3.csv",
-        "multi_ctrl_dqcswap_decay_opt_6.csv",
-        "multi_ctrl_dqcswap_dqcmap_opt_6.csv",
+    impls = [
+        "baseline",
+        "map",
+        "map+route",
+        "map+layout",
+        "map+layout+route",
     ]
-    colors = plt.cm.tab20(np.linspace(0, 1, len(unique_files)))
-    color_map = dict(zip(unique_files, colors))
+    colors = plt.cm.tab20(np.linspace(0, 1, len(impls)))
+    color_map = dict(zip(impls, colors))
     width = 0.15  # Bar width
 
     metrics = ["percent_inter", "runtime", "depth"]
@@ -72,8 +64,8 @@ def plot_data(df):
 
     for metric in metrics:
         fig, ax = plt.subplots(figsize=(10, 6))
-        for j, file in enumerate(unique_files):
-            file_data = df[df["source_file"] == file]
+        for j, impl in enumerate(impls):
+            file_data = df[df["impl"] == impl]
             nqs = file_data["num_qubits"]
             values = file_data[metric]
             indices = [num_qubits_values.index(nq) + j * width for nq in nqs]
@@ -81,8 +73,8 @@ def plot_data(df):
                 indices,
                 values,
                 width,
-                color=color_map[file],
-                label=label_dict[file],
+                color=color_map[impl],
+                label=impl,
                 edgecolor="black",
                 linewidth=1,
             )
@@ -91,10 +83,7 @@ def plot_data(df):
         ax.set_ylabel(metric)
         # ax.set_title(f"{metric.capitalize()} Comparison")
         ax.set_xticks(
-            [
-                x + width * (len(unique_files) - 1) / 2
-                for x in range(len(num_qubits_values))
-            ]
+            [x + width * (len(impls) - 1) / 2 for x in range(len(num_qubits_values))]
         )
         ax.set_xticklabels(num_qubits_values)
         ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=3)
@@ -110,6 +99,20 @@ def main(directory):
     plot_data(normalized_df)
 
 
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--d",
+        default="exp",
+        type=str,
+        help="Specify the directory to store plotted figures.",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    directory = "exp/"
+    args = get_args()
+    directory = args.d
+    if not os.path.exists(directory):
+        os.mkdir(directory)
     main(directory)

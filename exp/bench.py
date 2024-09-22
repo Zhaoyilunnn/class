@@ -230,6 +230,24 @@ class Result:
     depth: int = 0
 
 
+def _get_impl_name(compiler_name, opt_level, heuristic, routing_method):
+    if compiler_name == "baseline":
+        return "baseline"
+    if compiler_name == "multi_ctrl":
+        if opt_level == 3:
+            if routing_method == "dqcswap" and heuristic == "dqcmap":
+                return "map+route"
+            if routing_method == "dqcswap" and heuristic == "decay":
+                return "map"
+        if opt_level == 6:
+            if routing_method == "dqcswap" and heuristic == "dqcmap":
+                return "map+layout+route"
+            if routing_method == "dqcswap" and heuristic == "decay":
+                return "map+layout"
+
+    return "unknown"
+
+
 def process_results(result_lst: List[Result | None], num_qubits: int, csv_writer):
     perc_inter_dict = {}
     runtime_dict = {}
@@ -255,9 +273,12 @@ def process_results(result_lst: List[Result | None], num_qubits: int, csv_writer
         runtime = np.mean(runtime_dict[name])
         num_op = np.mean(num_op_dict[name])
         depth = np.mean(depth_dict[name])
-        print(f"{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}")
+        impl = _get_impl_name(name, ARGS.opt, ARGS.heuristic, ARGS.rt)
+        print(f"{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{impl}")
         if ARGS.wr and csv_writer is not None:
-            csv_writer.writerow([num_qubits, name, percent, runtime, num_op, depth])
+            csv_writer.writerow(
+                [num_qubits, name, percent, runtime, num_op, depth, impl]
+            )
 
 
 def run_circuit(
@@ -335,7 +356,7 @@ def main():
 
     # print result table header
     res_file_name = f"exp/{ARGS.comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}.csv"
-    print("num_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth")
+    print("num_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth\timpl")
     csv_writer = None
     f = None
     if ARGS.wr:
@@ -349,6 +370,7 @@ def main():
                 "runtime",
                 "num_op",
                 "depth",
+                "impl",
             ]
         )
 
