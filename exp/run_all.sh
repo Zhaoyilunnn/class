@@ -20,7 +20,7 @@ execute_command() {
 }
 
 # Define command parameters
-N_VALUES="10,20,30,40,50"
+N_VALUES="10,20,30"
 C_VALUE=10
 PARALLEL=1
 RT="dqcswap"
@@ -28,11 +28,11 @@ P_VALUE=0.9
 T_VALUE=0.2
 
 # Execute all commands
-execute_command "Baseline comparison experiment" "python exp/bench.py --n $N_VALUES --c $C_VALUE --parallel $PARALLEL --comp baseline --opt 3 --t $T_VALUE --p $P_VALUE --rt $RT --heuristic dqcmap"
-execute_command "Multi-controller comparison experiment - decay" "python exp/bench.py --n $N_VALUES --c $C_VALUE --parallel $PARALLEL --comp multi_ctrl --opt 3 --t $T_VALUE --p $P_VALUE --rt $RT --heuristic decay"
-execute_command "Multi-controller comparison experiment - dqcmap" "python exp/bench.py --n $N_VALUES --c $C_VALUE --parallel $PARALLEL --comp multi_ctrl --opt 3 --t $T_VALUE --p $P_VALUE --rt $RT --heuristic dqcmap"
-execute_command "Multi-controller optimization 6 - decay" "python exp/bench.py --n $N_VALUES --c $C_VALUE --parallel $PARALLEL --comp multi_ctrl --opt 6 --t $T_VALUE --p $P_VALUE --rt $RT --heuristic decay"
-execute_command "Multi-controller optimization 6 - dqcmap" "python exp/bench.py --n $N_VALUES --c $C_VALUE --parallel $PARALLEL --comp multi_ctrl --opt 6 --t $T_VALUE --p $P_VALUE --rt $RT --heuristic dqcmap"
+execute_command "Baseline comparison experiment" "python exp/bench.py --n $N_VALUES --c $C_VALUE --parallel $PARALLEL --comp baseline --opt 3 --t $T_VALUE --p $P_VALUE --rt $RT --heuristic dqcmap --wr 1"
+execute_command "Multi-controller comparison experiment - decay" "python exp/bench.py --n $N_VALUES --c $C_VALUE --parallel $PARALLEL --comp multi_ctrl --opt 3 --t $T_VALUE --p $P_VALUE --rt $RT --heuristic decay --wr 1"
+execute_command "Multi-controller comparison experiment - dqcmap" "python exp/bench.py --n $N_VALUES --c $C_VALUE --parallel $PARALLEL --comp multi_ctrl --opt 3 --t $T_VALUE --p $P_VALUE --rt $RT --heuristic dqcmap --wr 1"
+execute_command "Multi-controller optimization 6 - decay" "python exp/bench.py --n $N_VALUES --c $C_VALUE --parallel $PARALLEL --comp multi_ctrl --opt 6 --t $T_VALUE --p $P_VALUE --rt $RT --heuristic decay --wr 1"
+execute_command "Multi-controller optimization 6 - dqcmap" "python exp/bench.py --n $N_VALUES --c $C_VALUE --parallel $PARALLEL --comp multi_ctrl --opt 6 --t $T_VALUE --p $P_VALUE --rt $RT --heuristic dqcmap --wr 1"
 execute_command "Plot results" "python exp/plot_res.py"
 
 echo "All commands have been successfully executed."

@@ -10,6 +10,8 @@
 // copyright notice, and modified files need to carry a notice indicating
 // that they have been altered from the originals.
 
+use log::warn;
+use log::{debug, info, trace};
 use std::cmp::Ordering;
 
 use pyo3::prelude::*;
@@ -120,12 +122,11 @@ impl<'a, 'b> RoutingState<'a, 'b> {
             .iter()
             .map(|&x| x as i32)
             .collect();
-        // println!("applying swap: {:?}", swap_vec);
-        self.dqcmap_state
-            .apply_swap(&swap_vec, &self.dqcmap_active_nodes);
-        // if let Some(pairs) = self.dqcmap_state.cif_pairs.as_ref() {
-        //     println!("Current cif_pairs are: {:?}", pairs.pairs);
-        // }
+        debug!("applying swap: {:?}", swap_vec);
+        self.dqcmap_state.apply_swap(&swap_vec, &self.gate_order);
+        if let Some(pairs) = self.dqcmap_state.cif_pairs.as_ref() {
+            debug!("Current cif_pairs are: {:?}", pairs.pairs);
+        }
     }
 
     /// Return the node, if any, that is on this qubit and is routable with the current layout.
@@ -170,6 +171,7 @@ impl<'a, 'b> RoutingState<'a, 'b> {
         let dag = &self.dag;
         // Iterate through `to_visit`, except we often push new nodes onto the end of it.
         while i < to_visit.len() {
+            debug!("--> current to visit is: {:?}", to_visit);
             let node_id = to_visit[i];
             let node = &dag.dag[node_id];
             i += 1;
@@ -208,6 +210,10 @@ impl<'a, 'b> RoutingState<'a, 'b> {
             // If we reach here, the node is routable.
             self.gate_order.push(node.py_node_id);
             for edge in dag.dag.edges_directed(node_id, Direction::Outgoing) {
+                debug!(
+                    "--> looking for successors of node: {:?}, connected by edge: {:?}",
+                    node_id, edge
+                );
                 let successor_node = edge.target();
                 let successor_index = successor_node.index();
                 self.required_predecessors[successor_index] -= 1;
@@ -216,7 +222,7 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                 }
             }
         }
-        // println!("Current gate order is: {:?}", self.gate_order);
+        debug!("Current gate order is: {:?}", self.gate_order);
     }
 
     /// Inner worker to route a control-flow block.  Since control-flow blocks are routed to
@@ -302,6 +308,7 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                                 self.extended_set
                                     .push([a.to_phys(&self.layout), b.to_phys(&self.layout)]);
                                 to_visit.push(successor_node);
+                                debug!("to_visit pushing {:?}", successor_node);
                                 continue;
                             }
                         }
@@ -316,18 +323,119 @@ impl<'a, 'b> RoutingState<'a, 'b> {
         for (node, amount) in decremented.iter() {
             self.required_predecessors[*node] += *amount;
         }
-        // to_visit now contains nodes that need to be considered
-        // when calculating the inter-controller feedback overhead
-        // caused by a swap
+    }
+
+    #[inline]
+    fn routable_node_on_qubit_front_layer_in(
+        &self,
+        qubit: PhysicalQubit,
+        front_layer: &FrontLayer,
+    ) -> Option<NodeIndex> {
+        front_layer.qubits()[qubit.index()].and_then(|(node, other)| {
+            self.target
+                .coupling
+                .contains_edge(NodeIndex::new(qubit.index()), NodeIndex::new(other.index()))
+                .then_some(node)
+        })
+    }
+
+    /// Extract dqcmap active nodes, i.e., the cif nodes that are executable after
+    /// a swap is inserted
+    fn get_dqcmap_active_nodes(&mut self, swap: [PhysicalQubit; 2]) {
+        debug!("Checking dqcmap active nodes for swap: {:?}", swap);
         self.dqcmap_active_nodes.clear();
-        for node_id in to_visit {
-            self.dqcmap_active_nodes
-                .push(self.dag.dag[node_id].py_node_id);
+        let mut routable_nodes = Vec::<NodeIndex>::with_capacity(2);
+
+        // clone all required components and simulate a swap is applied
+        let mut front_layer = self.front_layer.clone();
+        debug!("The cloned front layer is: {:?}", front_layer);
+        let mut layout = self.layout.clone();
+        let mut extended_set = self.extended_set.clone();
+        let mut required_predecessors = Vec::from(self.required_predecessors.to_vec());
+
+        front_layer.apply_swap(swap);
+        extended_set.apply_swap(swap);
+        layout.swap_physical(swap[0], swap[1]);
+
+        if let Some(node) = self.routable_node_on_qubit_front_layer_in(swap[0], &front_layer) {
+            routable_nodes.push(node);
+            debug!(
+                "When getting dqcmap_active_nodes, found routable node on qubit: {:?} in swap: {:?}",
+                swap[1], swap
+            );
         }
-        // println!(
-        //     "Updated dqcmap active nodes are {:?}",
-        //     self.dqcmap_active_nodes
-        // );
+        if let Some(node) = self.routable_node_on_qubit_front_layer_in(swap[1], &front_layer) {
+            routable_nodes.push(node);
+            debug!(
+                "When getting dqcmap_active_nodes, found routable node on qubit: {:?} in swap: {:?}",
+                swap[0], swap
+            );
+        }
+
+        if !routable_nodes.is_empty() {
+            info!(
+                "When getting dqcmap active nodes, route nodes in: {:?}",
+                routable_nodes
+            );
+            debug!(
+                "When getting dqcmap_active_nodes, traversing some routable nodes: {:?}",
+                routable_nodes
+            );
+            // A similar procedure to `update_route` to find all executable nodes starting from
+            // the nodes in `routable_nodes`.
+            let mut to_visit = routable_nodes.to_vec();
+            let mut i = 0;
+            let dag = &self.dag;
+            // Iterate through `to_visit`, except we often push new nodes onto the end of it.
+            while i < to_visit.len() {
+                let node_id = to_visit[i];
+                let node = &dag.dag[node_id];
+                debug!("--> traversing node: {:?}", node);
+                debug!("--> dqcmap current to visit is: {:?}", to_visit);
+                i += 1;
+
+                // If the node is a directive that means it can be placed anywhere.
+                if !node.directive {
+                    if let Some(blocks) = dag.node_blocks.get(&node.py_node_id) {
+                        // FIXME: ugly impl; ideally I just want to bypass control flow block
+                        debug!("Encounter control flow block...");
+                        continue;
+                    } else {
+                        match node.qubits[..] {
+                            // A gate op whose connectivity must match the device to be placed in the
+                            // gate order.
+                            [a, b]
+                                if !self.target.coupling.contains_edge(
+                                    NodeIndex::new(a.to_phys(&layout).index()),
+                                    NodeIndex::new(b.to_phys(&layout).index()),
+                                ) =>
+                            {
+                                // 2Q op that cannot be placed. so we move on
+                                continue;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+
+                // If we reach here, the node is routable.
+                self.dqcmap_active_nodes.push(node.py_node_id);
+                for edge in dag.dag.edges_directed(node_id, Direction::Outgoing) {
+                    debug!(
+                        "--> looking for successors of node: {:?}, connected by edge: {:?}",
+                        node_id, edge
+                    );
+                    let successor_node = edge.target();
+                    let successor_index = successor_node.index();
+                    required_predecessors[successor_index] -= 1;
+                    if required_predecessors[successor_index] == 0 {
+                        to_visit.push(successor_node);
+                    }
+                }
+            }
+        } else {
+            debug!("Found no routable nodes after applying swap: {:?}", swap);
+        }
     }
 
     /// Add swaps to the current set that greedily bring the nearest node together.  This is a
@@ -394,18 +502,37 @@ impl<'a, 'b> RoutingState<'a, 'b> {
             }
             _ => 0.0,
         };
-        for swap in obtain_swaps(&self.front_layer, self.target.neighbors) {
+
+        let swaps: Vec<[PhysicalQubit; 2]> =
+            obtain_swaps(&self.front_layer, self.target.neighbors).collect();
+        for swap in swaps {
             let score = match self.heuristic {
                 Heuristic::Basic => self.front_layer.score(swap, dist),
                 Heuristic::Lookahead => {
                     self.front_layer.score(swap, dist)
                         + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist)
                 }
-                Heuristic::Decay | Heuristic::DqcMap => {
+                Heuristic::Decay | Heuristic::DM0 => {
                     self.qubits_decay[swap[0].index()].max(self.qubits_decay[swap[1].index()])
                         * (absolute_score
                             + self.front_layer.score(swap, dist)
                             + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist))
+                }
+                Heuristic::DM1 => {
+                    self.get_dqcmap_active_nodes(swap);
+                    if let Some(score) = self.dqcmap_state.score(
+                        &vec![swap[0].index() as i32, swap[1].index() as i32],
+                        &self.dqcmap_active_nodes,
+                    ) {
+                        self.qubits_decay[swap[0].index()].max(self.qubits_decay[swap[1].index()])
+                            * (absolute_score
+                                + self.front_layer.score(swap, dist)
+                                + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist))
+                            - (score as f64)
+                    } else {
+                        warn!("DqcMap score is None, ideally we should not go here.");
+                        0.
+                    }
                 }
             };
             if score < min_score - BEST_EPSILON {
@@ -418,20 +545,27 @@ impl<'a, 'b> RoutingState<'a, 'b> {
         }
         // if there are multiple swaps in `swap_scratch` and the heuristic is DqcMap,
         // calculate dqcmap score and select the smallest one
-        if self.heuristic == Heuristic::DqcMap && self.swap_scratch.len() > 1 {
-            // println!(
-            //     "Checking dqcmap scores for {} swaps",
-            //     self.swap_scratch.len()
-            // );
+        // if self.heuristic == Heuristic::DM0 { // this is used for debugging the score results
+        // of all best swaps chosen by original heuristic
+        if self.heuristic == Heuristic::DM0 && self.swap_scratch.len() > 1 {
+            debug!(
+                "Checking dqcmap scores for {} swaps",
+                self.swap_scratch.len()
+            );
             let mut max_dqcmap_score = i32::MIN;
             let mut best_swaps: Vec<[PhysicalQubit; 2]> = Vec::new();
 
-            for &swap in &self.swap_scratch {
+            for &swap in self.swap_scratch.clone().iter() {
+                self.get_dqcmap_active_nodes(swap);
+                debug!(
+                    "Current dqcmap active nodes are: {:?}",
+                    self.dqcmap_active_nodes
+                );
                 if let Some(score) = self.dqcmap_state.score(
                     &vec![swap[0].index() as i32, swap[1].index() as i32],
                     &self.dqcmap_active_nodes,
                 ) {
-                    // println!("Score of swap: {:?} is: {}", swap, score);
+                    debug!("Score of swap: {:?} is: {}", swap, score);
                     if score > max_dqcmap_score + DQC_SWAP_DELTA {
                         max_dqcmap_score = score;
                         best_swaps.clear();
@@ -442,7 +576,7 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                 }
             }
 
-            // println!("Filtered candidate swaps are: {:?}", best_swaps);
+            debug!("Filtered candidate swaps are: {:?}", best_swaps);
             // Randomly choose one from the best swaps
             *best_swaps.choose(&mut self.rng).unwrap()
         } else {
@@ -496,6 +630,7 @@ pub fn sabre_routing(
     cif_pairs: Option<CifPairs>,
     ctrl2pq: Option<Ctrl2Pq>,
 ) -> (SwapMap, PyObject, NodeBlockResults, PyObject) {
+    env_logger::init();
     let target = RoutingTargetView {
         neighbors: neighbor_table,
         coupling: &neighbor_table.coupling_graph(),
@@ -652,9 +787,17 @@ pub fn swap_map_trial(
             state.apply_swap(best_swap);
             current_swaps.push(best_swap);
             if let Some(node) = state.routable_node_on_qubit(best_swap[1]) {
+                debug!(
+                    "Find routable node on qubit: {:?} in swap: {:?}",
+                    best_swap[1], best_swap
+                );
                 routable_nodes.push(node);
             }
             if let Some(node) = state.routable_node_on_qubit(best_swap[0]) {
+                debug!(
+                    "Find routable node on qubit: {:?} in swap: {:?}",
+                    best_swap[0], best_swap
+                );
                 routable_nodes.push(node);
             }
             num_search_steps += 1;
@@ -667,6 +810,7 @@ pub fn swap_map_trial(
             }
         }
         if routable_nodes.is_empty() {
+            debug!("Exceed the max number of heuristic-chosen swaps without making progress");
             // If we exceeded the max number of heuristic-chosen swaps without making progress,
             // unwind to the last progress point and greedily swap to bring a node together.
             // Efficiency doesn't matter much; this path never gets taken unless we're unlucky.
@@ -677,16 +821,20 @@ pub fn swap_map_trial(
             let force_routed = state.force_enable_closest_node(&mut current_swaps);
             routable_nodes.push(force_routed);
         }
+        info!(
+            "After applying a swap: {:?}, route nodes in: {:?}",
+            current_swaps, routable_nodes
+        );
         state.update_route(&routable_nodes, current_swaps);
         state.qubits_decay.fill(1.);
         routable_nodes.clear();
     }
-    // if let Some(num_fb) = state.get_total_cross_ctrl_fb() {
-    //     println!(
-    //         "Total number of cross-ctrl feedbacks after this swap_map_trial is: {}",
-    //         num_fb
-    //     );
-    // }
+    if let Some(num_fb) = state.get_total_cross_ctrl_fb() {
+        debug!(
+            "Total number of cross-ctrl feedbacks after this swap_map_trial is: {}",
+            num_fb
+        );
+    }
     (
         SabreResult {
             map: SwapMap { map: state.out_map },

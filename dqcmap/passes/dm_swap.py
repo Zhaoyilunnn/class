@@ -235,7 +235,9 @@ class DqcMapSwap(TransformationPass):
         elif self.heuristic == "decay":
             heuristic = Heuristic.Decay
         elif self.heuristic == "dqcmap":
-            heuristic = Heuristic.DqcMap
+            heuristic = Heuristic.DM0
+        elif self.heuristic == "dm1":
+            heuristic = Heuristic.DM1
         else:
             raise TranspilerError("Heuristic %s not recognized." % self.heuristic)
         disjoint_utils.require_layout_isolated_to_component(

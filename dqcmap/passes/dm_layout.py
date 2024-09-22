@@ -440,7 +440,9 @@ class DqcMapLayout(TransformationPass):
         if self._heuristic == "decay":
             heuristic = Heuristic.Decay
         elif self._heuristic == "dqcmap":
-            heuristic = Heuristic.DqcMap
+            heuristic = Heuristic.DM0
+        elif self._heuristic == "dm1":
+            heuristic = Heuristic.DM1
         else:
             raise ValueError(
                 f"DqcMapSwap only supports heuristic `decay` and `dqcmap`. Found {self._heuristic} "
