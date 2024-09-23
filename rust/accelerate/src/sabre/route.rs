@@ -519,16 +519,20 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                             + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist))
                 }
                 Heuristic::DM1 => {
+                    let sabre_score = self.qubits_decay[swap[0].index()]
+                        .max(self.qubits_decay[swap[1].index()])
+                        * (absolute_score
+                            + self.front_layer.score(swap, dist)
+                            + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist));
+                    debug!("Heuristic DM1 -> sabre_score::{:?}", sabre_score);
+                    // calculate dqcmap score
                     self.get_dqcmap_active_nodes(swap);
-                    if let Some(score) = self.dqcmap_state.score(
+                    if let Some(dqcmap_score) = self.dqcmap_state.score(
                         &vec![swap[0].index() as i32, swap[1].index() as i32],
                         &self.dqcmap_active_nodes,
                     ) {
-                        self.qubits_decay[swap[0].index()].max(self.qubits_decay[swap[1].index()])
-                            * (absolute_score
-                                + self.front_layer.score(swap, dist)
-                                + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist))
-                            - (score as f64)
+                        debug!("Heuristic DM1 -> dqcmap_score::{:?}", dqcmap_score);
+                        sabre_score - 0.1 * (dqcmap_score as f64)
                     } else {
                         warn!("DqcMap score is None, ideally we should not go here.");
                         0.

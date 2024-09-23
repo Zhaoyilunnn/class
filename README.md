@@ -37,11 +37,18 @@ git add . && pre-commit
 
 # experiment
 
+## random circuit
 ```
-python exp/bench.py --n 20 --c 10 --parallel 1 --comp baseline,multi_ctrl --opt 2 --t 0.2 --p 0.9
+python exp/bench.py --n 30 --p 0.9 --c 1 --comp baseline,multi_ctrl --parallel 0 --opt 6 --t 0.2 --rt dqcswap --rt-trial 1 --heuristic decay --bench random --ctrl 5
 ```
 
-Options
+## DQC phase estimation (PE)
+
+```
+python exp/bench.py --n 30 --p 0.9 --c 1 --comp baseline,multi_ctrl --parallel 0 --opt 6 --t 0.2 --rt dqcswap --rt-trial 1 --heuristic decay --bench pe --ctrl 5
+```
+
+## Options
 - `--n`: number of qubits
 - `--c`: number of random circuits for averaging performance
 - `--parallel`: whether those `c` circuits run in parallel
@@ -49,3 +56,6 @@ Options
 - `--opt`: optimization level of multi\_ctrl
 - `--t`: scaling factor of two-qubit duration, since current simulated device has a much longer 2-q duration than SOTA.
 - `--p`: percentage of condition pairs in a quantum circuit
+
+
+Run `python exp/bench.py -h` for detailed instructions and explanations of all command line arguments.

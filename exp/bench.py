@@ -42,12 +42,6 @@ def get_args():
         "--c", type=int, default=1, help="Number of circuits for certain num_qubits"
     )
     parser.add_argument(
-        "--init-layout-type",
-        type=str,
-        default="null",
-        help="Methodology to set the initial layout",
-    )
-    parser.add_argument(
         "--log", type=int, default=0, help="Whether to output log for debugging."
     )
     parser.add_argument(
@@ -98,6 +92,18 @@ def get_args():
     )
     parser.add_argument(
         "--wr", default=0, type=int, help="Whether to write results to csv."
+    )
+    parser.add_argument(
+        "--qasm",
+        default="benchmarks/veriq-benchmark/dynamic/pe",
+        type=str,
+        help="Directory of qasm benchmarks",
+    )
+    parser.add_argument(
+        "--bench",
+        default="random",
+        type=str,
+        help="Type of benchmarks. Now we support `random` and `pe`.",
     )
 
     return parser.parse_args()
@@ -158,45 +164,35 @@ def get_benchmark(
     return qc
 
 
-# FIXME: delete this function
-def get_init_layout(init_layout_type: str, qc: QuantumCircuit, cm: List[List[int]]):
-    """Generate intial layout based on specified type
-    Args:
-        init_layout_type: Methodology to generate initial layout
-        qc: Quantum circuit.
-        cm: coupling_map in list format
-    """
-    if init_layout_type == "null":
-        return None
-    if init_layout_type == "trivial":
-        return CmHelper.gen_trivial_connected_region(qc, cm)
-    if init_layout_type == "connected":
-        _, regions = CmHelper.gen_random_connected_regions(cm, qc.num_qubits)
-        for r in regions:
-            if len(r) == qc.num_qubits:
-                return r
-
-    raise NotImplementedError(f"Unsupported initial layout type: {init_layout_type}")
-
-
-def gen_qc(num_qc, num_qubits, depth, cond_ratio, use_qiskit, seed_base=1900):
+def gen_qc(
+    num_qc, num_qubits, depth, cond_ratio, use_qiskit, seed_base=1900, qc_type="random"
+):
     qc_lst = []
 
-    for idx in range(num_qc):
-        # https://github.com/Zhaoyilunnn/dqc-map/issues/3
-        # due to the above issue, currently we do not rely on qasm files
-        # instead, we generate circuits dynamically
-        # reproducibility is guaranteed by setting fixed random seed
-        # qc = get_benchmark(num_qubits, depth, args.p, False, idx)
-        qc = get_synthetic_dqc(
-            num_qubits,
-            depth,
-            cond_ratio=cond_ratio,
-            use_qiskit=use_qiskit,
-            use_rb=False,
-            seed=seed_base + idx,
-        )
+    if qc_type == "random":
+        for idx in range(num_qc):
+            # https://github.com/Zhaoyilunnn/dqc-map/issues/3
+            # due to the above issue, currently we do not rely on qasm files
+            # instead, we generate circuits dynamically
+            # reproducibility is guaranteed by setting fixed random seed
+            # qc = get_benchmark(num_qubits, depth, args.p, False, idx)
+            qc = get_synthetic_dqc(
+                num_qubits,
+                depth,
+                cond_ratio=cond_ratio,
+                use_qiskit=use_qiskit,
+                use_rb=False,
+                seed=seed_base + idx,
+            )
+            qc_lst.append(qc)
+    elif qc_type == "pe":
+        file_path = os.path.join(ARGS.qasm, f"dqc_pe_{num_qubits}.qasm")
+        qc = QuantumCircuit.from_qasm_file(file_path)
         qc_lst.append(qc)
+    else:
+        raise ValueError(
+            f"Unsupported quantum circuit type: {qc_type}. Please set `random` or `pe`."
+        )
     return qc_lst
 
 
@@ -339,7 +335,6 @@ def main():
     nq_lst = parse_num_qubits(ARGS.n)  # list of `num_qubits`
     num_circuits = ARGS.c
     seed = ARGS.seed
-    name = ARGS.init_layout_type
     num_ctrls = ARGS.ctrl
     dev = Fake127QPulseV1()
     update_backend_cx_time_v2(dev, ARGS.t)
@@ -375,7 +370,9 @@ def main():
         )
 
     for n in nq_lst:
-        qc_lst = gen_qc(num_circuits, n, n, ARGS.p, False, seed_base=seed)
+        qc_lst = gen_qc(
+            num_circuits, n, n, ARGS.p, False, seed_base=seed, qc_type=ARGS.bench
+        )
         if ARGS.parallel:
             results = Parallel(n_jobs=-1)(
                 delayed(run_circuit)(
