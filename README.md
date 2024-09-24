@@ -59,3 +59,9 @@ python exp/bench.py --n 30 --p 0.9 --c 1 --comp baseline,multi_ctrl --parallel 0
 
 
 Run `python exp/bench.py -h` for detailed instructions and explanations of all command line arguments.
+
+## main results
+
+```
+bash exp/run_main.sh
+```

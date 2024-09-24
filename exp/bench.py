@@ -94,6 +94,12 @@ def get_args():
         "--wr", default=0, type=int, help="Whether to write results to csv."
     )
     parser.add_argument(
+        "--wr-path",
+        default="exp/data/",
+        type=str,
+        help="Directory for saving result files.",
+    )
+    parser.add_argument(
         "--qasm",
         default="benchmarks/veriq-benchmark/dynamic/pe",
         type=str,
@@ -264,16 +270,19 @@ def process_results(result_lst: List[Result | None], num_qubits: int, csv_writer
         num_op_dict[res.compiler_method].append(res.num_ops)
         depth_dict[res.compiler_method].append(res.depth)
 
+    bench_name = f"{ARGS.bench}_{num_qubits}"
     for name, res_lst in perc_inter_dict.items():
         percent = np.mean(res_lst)
         runtime = np.mean(runtime_dict[name])
         num_op = np.mean(num_op_dict[name])
         depth = np.mean(depth_dict[name])
         impl = _get_impl_name(name, ARGS.opt, ARGS.heuristic, ARGS.rt)
-        print(f"{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{impl}")
+        print(
+            f"{bench_name}\t{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{impl}"
+        )
         if ARGS.wr and csv_writer is not None:
             csv_writer.writerow(
-                [num_qubits, name, percent, runtime, num_op, depth, impl]
+                [bench_name, num_qubits, name, percent, runtime, num_op, depth, impl]
             )
 
 
@@ -350,15 +359,23 @@ def main():
     compiler_name_lst = parse_compiler_methods(ARGS.comp)
 
     # print result table header
-    res_file_name = f"exp/{ARGS.comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}.csv"
-    print("num_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth\timpl")
+    res_file_name = (
+        f"{ARGS.bench}_{ARGS.comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}.csv"
+    )
+    res_file_path = os.path.join(ARGS.wr_path, res_file_name)
+    print(
+        "bench_name\tnum_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth\timpl"
+    )
     csv_writer = None
     f = None
     if ARGS.wr:
-        f = open(res_file_name, "w")
+        if not os.path.exists(ARGS.wr_path):
+            os.makedirs(ARGS.wr_path)
+        f = open(res_file_path, "w")
         csv_writer = csv.writer(f)
         csv_writer.writerow(
             [
+                "bench_name",
                 "num_qubits",
                 "compiler_type",
                 "percent_inter",

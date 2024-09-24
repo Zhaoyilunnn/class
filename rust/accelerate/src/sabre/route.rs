@@ -634,7 +634,6 @@ pub fn sabre_routing(
     cif_pairs: Option<CifPairs>,
     ctrl2pq: Option<Ctrl2Pq>,
 ) -> (SwapMap, PyObject, NodeBlockResults, PyObject) {
-    env_logger::init();
     let target = RoutingTargetView {
         neighbors: neighbor_table,
         coupling: &neighbor_table.coupling_graph(),

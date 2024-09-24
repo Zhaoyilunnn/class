@@ -25,6 +25,7 @@ use pyo3::wrap_pyfunction;
 use pyo3::Python;
 
 use crate::nlayout::PhysicalQubit;
+use log::{debug, error, info, log_enabled, Level};
 use neighbor_table::NeighborTable;
 use sabre_dag::SabreDAG;
 use swap_map::SwapMap;
@@ -117,6 +118,7 @@ impl BlockResult {
 
 #[pymodule]
 pub fn sabre(m: &Bound<PyModule>) -> PyResult<()> {
+    let _ = env_logger::try_init();
     m.add_wrapped(wrap_pyfunction!(route::sabre_routing))?;
     m.add_wrapped(wrap_pyfunction!(layout::sabre_layout_and_routing))?;
     m.add_class::<Heuristic>()?;
