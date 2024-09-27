@@ -1,8 +1,9 @@
 import copy
 import math
+import os
 
 import rustworkx as rx
-from qiskit import QuantumCircuit
+from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.circuit.random.utils import random_circuit
 from qiskit.providers.fake_provider import Fake27QPulseV1, Fake127QPulseV1
 from qiskit.providers.models import BackendProperties
@@ -38,6 +39,48 @@ def test_get_cif_qubit_pairs():
     assert pairs[1][0] is qc.qubits[1]
 
     print(qc.draw("text"))
+
+
+def test_get_cif_qubit_pairs_creg_toy():
+    creg = ClassicalRegister(2)
+    qreg = QuantumRegister(2)
+    qc = QuantumCircuit(qreg, creg)
+    qc.h(qreg[0])
+    qc.measure(qreg[0], creg[0])
+    qc.cx(qreg[0], qreg[1]).c_if(creg, 1)
+    pairs = get_cif_qubit_pairs(qc)
+
+    assert len(pairs) == 2
+    assert pairs[0][0] is qc.qubits[0]
+    assert pairs[1][0] is qc.qubits[1]
+
+    print(qc.draw("text"))
+
+
+def test_get_cif_qubit_pairs_creg_pe():
+    pe_path = "benchmarks/veriq-benchmark/dynamic/pe/dqc_pe_4.qasm"
+    if os.path.exists(pe_path):
+        qc = QuantumCircuit.from_qasm_file(pe_path)
+        pairs = get_cif_qubit_pairs(qc)
+
+        assert len(pairs) == 6
+
+        assert pairs[0][0] is qc.qubits[1]
+        assert pairs[1][0] is qc.qubits[2]
+        assert pairs[2][0] is qc.qubits[3]
+        assert pairs[0][1] is qc.qubits[0]
+        assert pairs[1][1] is qc.qubits[0]
+        assert pairs[2][1] is qc.qubits[0]
+
+        assert pairs[3][0] is qc.qubits[2]
+        assert pairs[4][0] is qc.qubits[3]
+        assert pairs[3][1] is qc.qubits[1]
+        assert pairs[4][1] is qc.qubits[1]
+
+        assert pairs[5][0] is qc.qubits[3]
+        assert pairs[5][1] is qc.qubits[2]
+
+        print(qc.draw("text"))
 
 
 def test_update_backend_cx_time():

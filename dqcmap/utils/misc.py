@@ -3,7 +3,7 @@ import random
 from collections.abc import Iterable
 from typing import Any, Dict, List, Optional, Set
 
-from qiskit import QuantumCircuit
+from qiskit import ClassicalRegister, QuantumCircuit
 from qiskit.circuit import CircuitInstruction, Clbit, Qubit
 from qiskit.circuit.random.utils import random_circuit
 from qiskit.providers import Backend, BackendV1, BackendV2
@@ -59,6 +59,12 @@ def get_cif_qubit_pairs(qc: QuantumCircuit):
     # A mapping that records a clbit is measured based on which qubit
     measure_map = {}
 
+    # Map of c register and qubits
+    # This is useful because some qasm implementations (especially qasm2)
+    # relies on c register results as conditions
+    # So that the `condition` will be `ClassicalRegister` instead of `Clbit`
+    map_creg_qubits = {}
+
     # Result
     #  here we use list[list[int]], because a qubit may be conditioned on another qubit for many times
     pairs = []
@@ -71,16 +77,30 @@ def get_cif_qubit_pairs(qc: QuantumCircuit):
                 assert len(cargs) == len(qargs)
                 for i, c in enumerate(cargs):
                     measure_map[c] = qargs[i]
+                    if isinstance(c, Clbit):
+                        map_creg_qubits.setdefault(c._register, [])
+                        map_creg_qubits[c._register].append(qargs[i])
             if hasattr(operation, "condition") and operation.condition is not None:
                 cond = operation.condition
 
                 logger.debug(f" ===> Condition: {cond}")
                 assert len(cond) == 2
-                assert isinstance(cond[0], Clbit)
-                c = cond[0]
-                for q in qargs:
-                    pair = [q, measure_map[c]]
-                    pairs.append(pair)
+                if isinstance(cond[0], Clbit):
+                    c = cond[0]
+                    for q in qargs:
+                        pair = [q, measure_map[c]]
+                        pairs.append(pair)
+                elif isinstance(cond[0], ClassicalRegister):
+                    c = cond[0]
+                    cond_q_lst = map_creg_qubits[c]
+                    for cond_q in cond_q_lst:
+                        for q in qargs:
+                            pair = [q, cond_q]
+                            pairs.append(pair)
+                else:
+                    assert (
+                        False
+                    ), "Found an operation with condition neither Clbit nor ClassicalRegister."
 
     logger.debug(f" ===> measure_map: {measure_map}")
     logger.debug(f" ===> result pairs: {pairs}")

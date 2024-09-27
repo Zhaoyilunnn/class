@@ -55,7 +55,7 @@ const EXTENDED_SET_WEIGHT: f64 = 0.5;
 /// Number of trials for control flow block swap epilogues.
 const SWAP_EPILOGUE_TRIALS: usize = 4;
 /// Delta for selecting a swap for less inter-controller feedback
-const DQC_SWAP_DELTA: i32 = 8;
+const DQC_SWAP_DELTA: i32 = 0;
 
 /// A view object onto a full routing target.  This is cheap to clone and to replace components
 /// within it; cloning only duplicates the inner references and not the data objects beneath.  This
@@ -519,16 +519,20 @@ impl<'a, 'b> RoutingState<'a, 'b> {
                             + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist))
                 }
                 Heuristic::DM1 => {
+                    let sabre_score = self.qubits_decay[swap[0].index()]
+                        .max(self.qubits_decay[swap[1].index()])
+                        * (absolute_score
+                            + self.front_layer.score(swap, dist)
+                            + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist));
+                    debug!("Heuristic DM1 -> sabre_score::{:?}", sabre_score);
+                    // calculate dqcmap score
                     self.get_dqcmap_active_nodes(swap);
-                    if let Some(score) = self.dqcmap_state.score(
+                    if let Some(dqcmap_score) = self.dqcmap_state.score(
                         &vec![swap[0].index() as i32, swap[1].index() as i32],
                         &self.dqcmap_active_nodes,
                     ) {
-                        self.qubits_decay[swap[0].index()].max(self.qubits_decay[swap[1].index()])
-                            * (absolute_score
-                                + self.front_layer.score(swap, dist)
-                                + EXTENDED_SET_WEIGHT * self.extended_set.score(swap, dist))
-                            - (score as f64)
+                        debug!("Heuristic DM1 -> dqcmap_score::{:?}", dqcmap_score);
+                        sabre_score - 0.1 * (dqcmap_score as f64)
                     } else {
                         warn!("DqcMap score is None, ideally we should not go here.");
                         0.
@@ -630,7 +634,6 @@ pub fn sabre_routing(
     cif_pairs: Option<CifPairs>,
     ctrl2pq: Option<Ctrl2Pq>,
 ) -> (SwapMap, PyObject, NodeBlockResults, PyObject) {
-    env_logger::init();
     let target = RoutingTargetView {
         neighbors: neighbor_table,
         coupling: &neighbor_table.coupling_graph(),

@@ -42,12 +42,6 @@ def get_args():
         "--c", type=int, default=1, help="Number of circuits for certain num_qubits"
     )
     parser.add_argument(
-        "--init-layout-type",
-        type=str,
-        default="null",
-        help="Methodology to set the initial layout",
-    )
-    parser.add_argument(
         "--log", type=int, default=0, help="Whether to output log for debugging."
     )
     parser.add_argument(
@@ -98,6 +92,24 @@ def get_args():
     )
     parser.add_argument(
         "--wr", default=0, type=int, help="Whether to write results to csv."
+    )
+    parser.add_argument(
+        "--wr-path",
+        default="exp/data/",
+        type=str,
+        help="Directory for saving result files.",
+    )
+    parser.add_argument(
+        "--qasm",
+        default="benchmarks/veriq-benchmark/dynamic/pe",
+        type=str,
+        help="Directory of qasm benchmarks",
+    )
+    parser.add_argument(
+        "--bench",
+        default="random",
+        type=str,
+        help="Type of benchmarks. Now we support `random` and `pe`.",
     )
 
     return parser.parse_args()
@@ -158,45 +170,45 @@ def get_benchmark(
     return qc
 
 
-# FIXME: delete this function
-def get_init_layout(init_layout_type: str, qc: QuantumCircuit, cm: List[List[int]]):
-    """Generate intial layout based on specified type
-    Args:
-        init_layout_type: Methodology to generate initial layout
-        qc: Quantum circuit.
-        cm: coupling_map in list format
-    """
-    if init_layout_type == "null":
-        return None
-    if init_layout_type == "trivial":
-        return CmHelper.gen_trivial_connected_region(qc, cm)
-    if init_layout_type == "connected":
-        _, regions = CmHelper.gen_random_connected_regions(cm, qc.num_qubits)
-        for r in regions:
-            if len(r) == qc.num_qubits:
-                return r
-
-    raise NotImplementedError(f"Unsupported initial layout type: {init_layout_type}")
-
-
-def gen_qc(num_qc, num_qubits, depth, cond_ratio, use_qiskit, seed_base=1900):
+def gen_qc(
+    num_qc, num_qubits, depth, cond_ratio, use_qiskit, seed_base=1900, qc_type="random"
+):
     qc_lst = []
 
-    for idx in range(num_qc):
-        # https://github.com/Zhaoyilunnn/dqc-map/issues/3
-        # due to the above issue, currently we do not rely on qasm files
-        # instead, we generate circuits dynamically
-        # reproducibility is guaranteed by setting fixed random seed
-        # qc = get_benchmark(num_qubits, depth, args.p, False, idx)
-        qc = get_synthetic_dqc(
-            num_qubits,
-            depth,
-            cond_ratio=cond_ratio,
-            use_qiskit=use_qiskit,
-            use_rb=False,
-            seed=seed_base + idx,
-        )
+    if qc_type == "random":
+        for idx in range(num_qc):
+            # https://github.com/Zhaoyilunnn/dqc-map/issues/3
+            # due to the above issue, currently we do not rely on qasm files
+            # instead, we generate circuits dynamically
+            # reproducibility is guaranteed by setting fixed random seed
+            # qc = get_benchmark(num_qubits, depth, args.p, False, idx)
+            qc = get_synthetic_dqc(
+                num_qubits,
+                depth,
+                cond_ratio=cond_ratio,
+                use_qiskit=use_qiskit,
+                use_rb=False,
+                seed=seed_base + idx,
+            )
+            qc_lst.append(qc)
+    elif qc_type == "pe":
+        file_path = os.path.join(ARGS.qasm, f"dqc_pe_{num_qubits}.qasm")
+        qc = QuantumCircuit.from_qasm_file(file_path)
         qc_lst.append(qc)
+    elif qc_type == "cc":
+        assert num_qubits in [12, 32, 64, 151, 301]
+        if num_qubits == 12:
+            file_path = "benchmarks/QASMBench/medium/cc_n12/cc_n12.qasm"
+        else:
+            file_path = os.path.join(
+                f"benchmarks/QASMBench/large/cc_n{num_qubits}/cc_n{num_qubits}.qasm"
+            )
+        qc = QuantumCircuit.from_qasm_file(file_path)
+        qc_lst.append(qc)
+    else:
+        raise ValueError(
+            f"Unsupported quantum circuit type: {qc_type}. Please set `random` or `pe`."
+        )
     return qc_lst
 
 
@@ -228,6 +240,8 @@ class Result:
     perc_inter: float = 0.0
     num_ops: int = 0
     depth: int = 0
+    init_ctrl_latency: float = 0.0
+    num_cif_pairs: int = 0
 
 
 def _get_impl_name(compiler_name, opt_level, heuristic, routing_method):
@@ -253,6 +267,8 @@ def process_results(result_lst: List[Result | None], num_qubits: int, csv_writer
     runtime_dict = {}
     num_op_dict = {}
     depth_dict = {}
+    init_ctrl_latency_dict = {}
+    num_cif_pairs_dict = {}
 
     for res in result_lst:
         if not isinstance(res, Result):
@@ -262,22 +278,42 @@ def process_results(result_lst: List[Result | None], num_qubits: int, csv_writer
         runtime_dict.setdefault(res.compiler_method, [])
         num_op_dict.setdefault(res.compiler_method, [])
         depth_dict.setdefault(res.compiler_method, [])
+        init_ctrl_latency_dict.setdefault(res.compiler_method, [])
+        num_cif_pairs_dict.setdefault(res.compiler_method, [])
 
         perc_inter_dict[res.compiler_method].append(res.perc_inter)
         runtime_dict[res.compiler_method].append(res.runtime)
         num_op_dict[res.compiler_method].append(res.num_ops)
         depth_dict[res.compiler_method].append(res.depth)
+        init_ctrl_latency_dict[res.compiler_method].append(res.init_ctrl_latency)
+        num_cif_pairs_dict[res.compiler_method].append(res.num_cif_pairs)
 
+    bench_name = f"{ARGS.bench}_{num_qubits}"
     for name, res_lst in perc_inter_dict.items():
         percent = np.mean(res_lst)
         runtime = np.mean(runtime_dict[name])
         num_op = np.mean(num_op_dict[name])
         depth = np.mean(depth_dict[name])
+        init_ctrl_latency = np.mean(init_ctrl_latency_dict[name])
+        num_cif_pairs = np.mean(num_cif_pairs_dict[name])
         impl = _get_impl_name(name, ARGS.opt, ARGS.heuristic, ARGS.rt)
-        print(f"{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{impl}")
+        print(
+            f"{bench_name}\t{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{init_ctrl_latency}\t{num_cif_pairs}\t{impl}"
+        )
         if ARGS.wr and csv_writer is not None:
             csv_writer.writerow(
-                [num_qubits, name, percent, runtime, num_op, depth, impl]
+                [
+                    bench_name,
+                    num_qubits,
+                    name,
+                    percent,
+                    runtime,
+                    num_op,
+                    depth,
+                    init_ctrl_latency,
+                    num_cif_pairs,
+                    impl,
+                ]
             )
 
 
@@ -286,7 +322,7 @@ def run_circuit(
     dev,
     seed,
     cm,
-    evaluator,
+    evaluator: Eval,
     conf,
     layout_method,
     compiler_name,
@@ -294,7 +330,7 @@ def run_circuit(
     debug_qc(qc)
     compiler = COMPILERS[compiler_name](conf)
 
-    if compiler_name == "baseline":
+    if compiler_name in ["baseline", "single_ctrl"]:
         routing_method = "sabre"
         layout_method = "sabre"
     else:
@@ -316,11 +352,20 @@ def run_circuit(
     logger.debug(f"final layout: \n{final_layout}")
     swap_needed = check_swap_needed(qc, final_layout, cm)
 
+    # Evaluate ctrl latency based on initial layout and non-transpiled qc
+    init_layout = layout.initial_virtual_layout(filter_ancillas=True)
+    init_layout_lst = list(range(qc.num_qubits))
+    for vq, pq in init_layout._v2p.items():
+        init_layout_lst[vq._index] = pq
+
     total_latency = evaluator(tqc, dev)
     gate_latency = evaluator.gate_latency
     ctrl_latency = evaluator.ctrl_latency
     inner = evaluator.inner_latency
     inter = evaluator.inter_latency
+    num_cif_pairs = evaluator.num_cif_pairs
+
+    init_ctrl_latency = evaluator.get_init_layout_ctrl_latency(qc, init_layout_lst)
 
     perc_inter = inter / total_latency
     num_op = len(tqc.data)
@@ -332,6 +377,8 @@ def run_circuit(
         perc_inter=perc_inter,
         num_ops=num_op,
         depth=depth,
+        init_ctrl_latency=init_ctrl_latency,
+        num_cif_pairs=num_cif_pairs,
     )
 
 
@@ -339,7 +386,6 @@ def main():
     nq_lst = parse_num_qubits(ARGS.n)  # list of `num_qubits`
     num_circuits = ARGS.c
     seed = ARGS.seed
-    name = ARGS.init_layout_type
     num_ctrls = ARGS.ctrl
     dev = Fake127QPulseV1()
     update_backend_cx_time_v2(dev, ARGS.t)
@@ -349,33 +395,43 @@ def main():
     conf = ControllerConfig(
         dev.configuration().n_qubits, num_ctrls, strategy=MapStratety.CONNECT, cm=cm
     )
-    # evaluator = EvalV2(conf)
-    evaluator = Eval(conf)
+    evaluator = EvalV2(conf)
+    # evaluator = Eval(conf)
 
     compiler_name_lst = parse_compiler_methods(ARGS.comp)
 
     # print result table header
-    res_file_name = f"exp/{ARGS.comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}.csv"
-    print("num_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth\timpl")
+    res_file_name = f"{ARGS.bench}_{ARGS.comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}_ctrl_{ARGS.ctrl}.csv"
+    res_file_path = os.path.join(ARGS.wr_path, res_file_name)
+    print(
+        "bench_name\tnum_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth\tinit_ctrl_latency\tnum_cif_pairs\timpl"
+    )
     csv_writer = None
     f = None
     if ARGS.wr:
-        f = open(res_file_name, "w")
+        if not os.path.exists(ARGS.wr_path):
+            os.makedirs(ARGS.wr_path)
+        f = open(res_file_path, "w")
         csv_writer = csv.writer(f)
         csv_writer.writerow(
             [
+                "bench_name",
                 "num_qubits",
                 "compiler_type",
                 "percent_inter",
                 "runtime",
                 "num_op",
                 "depth",
+                "init_ctrl_latency",
+                "num_cif_pairs",
                 "impl",
             ]
         )
 
     for n in nq_lst:
-        qc_lst = gen_qc(num_circuits, n, n, ARGS.p, False, seed_base=seed)
+        qc_lst = gen_qc(
+            num_circuits, n, n, ARGS.p, False, seed_base=seed, qc_type=ARGS.bench
+        )
         if ARGS.parallel:
             results = Parallel(n_jobs=-1)(
                 delayed(run_circuit)(

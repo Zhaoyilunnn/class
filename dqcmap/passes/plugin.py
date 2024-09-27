@@ -56,10 +56,10 @@ class DqcMapLayoutPlugin(PassManagerStagePlugin):
                 skip_routing=pass_manager_config.routing_method is not None
                 and pass_manager_config.routing_method != "sabre",
                 sabre_starting_layouts=getattr(
-                    pass_manager_config, "sabre_starting_layouts"
+                    pass_manager_config, "sabre_starting_layouts", None
                 ),
-                ctrl_conf=getattr(pass_manager_config, "ctrl_conf"),
-                heuristic=getattr(pass_manager_config, "heuristic"),
+                ctrl_conf=getattr(pass_manager_config, "ctrl_conf", None),
+                heuristic=getattr(pass_manager_config, "heuristic", "decay"),
             )
         elif optimization_level == 2:
             layout_pass = SabreLayout(

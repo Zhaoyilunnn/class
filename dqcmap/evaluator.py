@@ -8,6 +8,7 @@ from qiskit.compiler import schedule
 from qiskit.providers import Backend
 from qiskit.pulse import Schedule
 
+from dqcmap.circuit_prop import CircProperty
 from dqcmap.utils.misc import get_cif_qubit_pairs
 
 from .controller import ControllerConfig
@@ -43,6 +44,7 @@ class Eval:
         self._ctrl_latency = None
         self._inner_ctrl_latency = None
         self._inter_ctrl_latency = None
+        self._num_cif_pairs = None
 
     @property
     def gate_latency(self):
@@ -75,6 +77,15 @@ class Eval:
                 "Please first run the evaluation before getting the value of inter feedback-control latency"
             )
         return self._inter_ctrl_latency
+
+    @property
+    def num_cif_pairs(self):
+        """Return the number of _cross-controller_ cif pairs"""
+        if self._num_cif_pairs is None:
+            raise ValueError(
+                "Please first run the evaluation before getting the value of number of cif pairs"
+            )
+        return self._num_cif_pairs
 
     def __call__(self, qc: QuantumCircuit, backend: Backend):
         """Evaluate the runtime of given quantum circuit
@@ -109,6 +120,16 @@ class Eval:
 
         # Return the sum of original latency and control latency
         return self._orig_latency + self._ctrl_latency
+
+    def get_init_layout_ctrl_latency(
+        self, qc: QuantumCircuit, initial_layout: List[int]
+    ):
+        """
+        Evaluate the ctrl latency given the initial mapping on a *non-transpiled* circuit
+        """
+        circ_prop = CircProperty(qc)
+        cif_pairs = circ_prop.layout_cif_pairs(initial_layout)
+        return self.calc_ctrl_latency(cif_pairs)
 
     # FIXME: delete this function, we should directly get condition pairs from physical qubits
     def get_phy_cond_pairs(self, qc: QuantumCircuit, backend: Backend):
@@ -170,6 +191,7 @@ class Eval:
         ctrl_latency = 0
         inner_latency = 0
         inter_latency = 0
+        num_inter_cif = 0
 
         ctrl_mapping = self._conf.pq_to_ctrl
         dt_inner = self._conf.dt_inner
@@ -187,9 +209,11 @@ class Eval:
                 # the qubits are controlled by different controller
                 ctrl_latency += dt_inter
                 inter_latency += dt_inter
+                num_inter_cif += 1
 
         self._inner_ctrl_latency = inner_latency
         self._inter_ctrl_latency = inter_latency
+        self._num_cif_pairs = num_inter_cif
         return ctrl_latency
 
 
