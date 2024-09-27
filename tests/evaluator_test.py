@@ -18,6 +18,7 @@ class TestEval:
     dev = Fake127QPulseV1()
     tqc = transpile(qc, dev)
 
+    # Here we use the default trivial mapping because the results are reproducible
     conf = ControllerConfig(127, 10)
 
     def test_get_phy_cond_pairs_true(self):
@@ -38,5 +39,14 @@ class TestEval:
         pairs = [[1, 0], [3, 15]]
 
         t = e.calc_ctrl_latency(pairs)
+
+        assert isclose(t, 5.5e-7)
+
+    def test_get_init_layout_ctrl_latency(self):
+        e = Eval(TestEval.conf, TestEval.cif_pairs)
+
+        init_layout = [0, 21]
+
+        t = e.get_init_layout_ctrl_latency(TestEval.qc, init_layout)
 
         assert isclose(t, 5.5e-7)

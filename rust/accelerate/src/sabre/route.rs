@@ -55,7 +55,7 @@ const EXTENDED_SET_WEIGHT: f64 = 0.5;
 /// Number of trials for control flow block swap epilogues.
 const SWAP_EPILOGUE_TRIALS: usize = 4;
 /// Delta for selecting a swap for less inter-controller feedback
-const DQC_SWAP_DELTA: i32 = 8;
+const DQC_SWAP_DELTA: i32 = 0;
 
 /// A view object onto a full routing target.  This is cheap to clone and to replace components
 /// within it; cloning only duplicates the inner references and not the data objects beneath.  This

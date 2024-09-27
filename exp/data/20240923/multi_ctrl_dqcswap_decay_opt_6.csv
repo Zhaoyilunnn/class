@@ -1,0 +1,4 @@
+num_qubits,compiler_type,percent_inter,runtime,num_op,depth,impl
+10,multi_ctrl,0.31876470105886373,6.753217777777785e-05,414.3,153.1,map+layout
+20,multi_ctrl,0.6397589956907973,0.0004216530888888904,1685.2,460.8,map+layout
+30,multi_ctrl,0.6958488238483022,0.00112143095555554,3980.1,972.9,map+layout

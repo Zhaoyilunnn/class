@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+METRICS = ["percent_inter", "runtime", "depth", "num_cif_pairs"]
+
 ################# Matplotlib Global Conf #########################
 FIG_SIZE = (15, 5)
 fontsize = 27
@@ -55,7 +57,7 @@ def normalize_data(df):
     baseline_data = df[df["compiler_type"] == "baseline"]
     for index, row in df.iterrows():
         baseline_row = baseline_data[(baseline_data["bench_name"] == row["bench_name"])]
-        for col in ["percent_inter", "runtime", "depth"]:
+        for col in METRICS:
             if not baseline_row.empty:
                 df.at[index, col] /= baseline_row[col].values[0]
     return df
@@ -68,13 +70,13 @@ def plot_data(df):
         # "map",
         # "map+route",
         "map+layout",
-        # "map+layout+route",
+        "map+layout+route",
     ]
     colors = plt.cm.tab20(np.linspace(0, 1, len(impls)))
     color_map = dict(zip(impls, colors))
     width = 0.15  # Bar width
 
-    metrics = ["percent_inter", "runtime", "depth"]
+    metrics = METRICS
     bench_names = sorted(df["bench_name"].unique())
     bench_names.append("avg")
 
@@ -82,8 +84,13 @@ def plot_data(df):
         fig, ax = plt.subplots(figsize=FIG_SIZE)
         for j, impl in enumerate(impls):
             file_data = df[df["impl"] == impl]
+            if file_data.empty:
+                continue
             # bns = file_data["bench_name"]  # benchmark names
-            values = list(file_data[metric].values)
+            values = [
+                file_data[file_data["bench_name"] == bn][metric].values[0]
+                for bn in bench_names[:-1]
+            ]
             avg_val = np.mean(values)
             values.append(avg_val)
             indices = [bench_names.index(b) + j * width for b in bench_names]

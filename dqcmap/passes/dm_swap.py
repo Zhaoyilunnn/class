@@ -308,6 +308,13 @@ def _build_sabre_dag(dag, num_physical_qubits, qubit_indices):
 
     # Maps cbit: last qbit :=  measure qbit -> cbit
     cbits_measure_dict = {}
+
+    # Map of c register and qubits
+    # This is useful because some qasm implementations (especially qasm2)
+    # relies on c register results as conditions
+    # So that the `condition` will be `ClassicalRegister` instead of `Clbit`
+    map_creg_qubits = {}
+
     cif_pairs = {}
 
     def recurse(block, block_qubit_indices):
@@ -331,22 +338,32 @@ def _build_sabre_dag(dag, num_physical_qubits, qubit_indices):
                 # FIXME: currently we only support single qubit measurement
                 if len(node.cargs) == 1:
                     assert len(node.qargs) == 1
+                    c_reg = node.cargs[0]._register
                     qindex = wire_map[node.qargs[0]]
                     cindex = block_dag.find_bit(node.cargs[0]).index
                     cbits_measure_dict[cindex] = qindex
+                    map_creg_qubits.setdefault(c_reg, [])
+                    map_creg_qubits[c_reg].append(qindex)
             #### Modification by dqcmap ####
 
             if node.op.condition is not None:
                 clbits = condition_resources(node.op.condition).clbits
                 cargs_bits.update(clbits)
-                # FIXME: currently we only support single qubit measurement
+                qindexes = [wire_map[x] for x in node.qargs]
+                cif_pairs.setdefault(node._node_id, [])
                 if len(clbits) == 1:
                     cindex = block_dag.find_bit(clbits[0]).index
                     cond_qind = cbits_measure_dict[cindex]
-                    qindexes = [wire_map[x] for x in node.qargs]
-                    cif_pairs.setdefault(node._node_id, [])
                     for qind in qindexes:
                         cif_pairs[node._node_id].append([qind, cond_qind])
+                else:
+                    assert isinstance(node.op.condition[0], ClassicalRegister)
+                    c = node.op.condition[0]
+                    cond_q_lst = map_creg_qubits[c]
+                    for cond_q in cond_q_lst:
+                        for q in qindexes:
+                            pair = [q, cond_q]
+                            cif_pairs[node._node_id].append(pair)
 
             if isinstance(node.op, SwitchCaseOp):
                 target = node.op.target

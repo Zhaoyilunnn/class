@@ -1,0 +1,2 @@
+bench_name,num_qubits,compiler_type,percent_inter,runtime,num_op,depth,init_ctrl_latency,num_cif_pairs,impl
+random_32,32,multi_ctrl,0.832547399915433,0.0009224699999999947,4696.0,1216.0,0.0002852000000000023,1536.0,map+layout+route
