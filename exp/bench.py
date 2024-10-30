@@ -101,7 +101,7 @@ def get_args():
     )
     parser.add_argument(
         "--qasm",
-        default="benchmarks/veriq-benchmark/dynamic/pe",
+        default="benchmarks/veriq-benchmark/dynamic/",
         type=str,
         help="Directory of qasm benchmarks",
     )
@@ -109,7 +109,7 @@ def get_args():
         "--bench",
         default="random",
         type=str,
-        help="Type of benchmarks. Now we support `random` and `pe`.",
+        help="Type of benchmarks. Now we support `random`, `pe`, `qft`, and `cc`.",
     )
 
     return parser.parse_args()
@@ -191,8 +191,10 @@ def gen_qc(
                 seed=seed_base + idx,
             )
             qc_lst.append(qc)
-    elif qc_type == "pe":
-        file_path = os.path.join(ARGS.qasm, f"dqc_pe_{num_qubits}.qasm")
+    elif qc_type in ["pe", "qft"]:
+        file_path = os.path.join(
+            ARGS.qasm, f"{qc_type}/dqc_{qc_type}_{num_qubits}.qasm"
+        )
         qc = QuantumCircuit.from_qasm_file(file_path)
         qc_lst.append(qc)
     elif qc_type == "cc":
