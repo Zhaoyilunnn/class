@@ -1,6 +1,7 @@
 import logging
 import time
-from typing import List, Optional
+from math import isclose
+from typing import Any, List, Optional
 
 from qiskit import QuantumCircuit
 from qiskit.circuit import CircuitInstruction, Qubit
@@ -219,6 +220,11 @@ class Eval:
 
 class EvalV2(Eval):
     def calc_orig_latency(self, qc: QuantumCircuit, backend: Backend):
+        """
+        Only count 1-q operation and 2-q operation time
+        1-q: 20 ns
+        2-q: 40 ns
+        """
         res = 0.0
         for val in qc.data:
             if isinstance(val, CircuitInstruction):
@@ -230,3 +236,119 @@ class EvalV2(Eval):
                         res += 2e-8
 
         return res
+
+
+class EvalV3(EvalV2):
+    def __call__(self, qc: QuantumCircuit, backend: Backend):
+        """Evaluate the runtime of given quantum circuit
+        Args:
+            qc (QuantumCircuit): The transpiled circuit.
+            backend (Backend): The target device model.
+        """
+
+        self._init_latency()
+
+        # Get physical qubit pairs
+        pairs = get_cif_qubit_pairs(qc, with_states=True)
+        # print(f"Cif pairs after transpilation: {pairs}")
+
+        # Calculate the original latency
+        calc_start = time.perf_counter()
+        self._orig_latency = self.calc_orig_latency(qc, backend)
+        calc_stop = time.perf_counter()
+        logger.debug(
+            f"Finished calculating gate latency in {calc_stop - calc_start} sec."
+        )
+
+        # Calculate feedback control latency
+        calc_start = time.perf_counter()
+        self._ctrl_latency = self.calc_ctrl_latency(pairs)
+        calc_stop = time.perf_counter()
+        logger.debug(
+            f"Finished calculating control feedback latency in {calc_stop - calc_start} sec."
+        )
+
+        # Return the sum of original latency and control latency
+        return self._orig_latency + self._ctrl_latency
+
+    def calc_ctrl_latency(self, pairs: List[Any]):
+        """Calculate the feedback control latency
+        1. If two qubits are controlled by the same controller, the latency is small
+        2. If they're controlled by different controllers, the latency is much larger
+
+        In this version, if multiple qubits rely on a single measurement result, the
+        latency is counted for only once because we assume one controller can broadcast
+        the result to all dependents.
+        """
+
+        ctrl_latency = 0
+        inner_latency = 0
+        inter_latency = 0
+        num_inter_cif = 0
+
+        # Given a cif pair, say [0, 1],
+        #   1. if the state is True, meaning that the measurement result
+        #      of qubit 1 is used for the first time, we add key 1 to this
+        #      cache. If the key is already in the cache, accumulate the
+        #      latency value of this key.
+        #   2. if the state is False, meaning that the measurement result
+        #      of qubit 1 is already used before, we check if current latency
+        #      larger than that in the cache and update the cache.
+        latency_cache = {}
+
+        ctrl_mapping = self._conf.pq_to_ctrl
+        dt_inner = self._conf.dt_inner
+        dt_inter = self._conf.dt_inter
+
+        for pair in pairs:
+            targ_pq = pair[0][0]._index
+            ctrl_pq = pair[0][1]._index
+            state = pair[1]
+
+            is_inner = ctrl_mapping[targ_pq] == ctrl_mapping[ctrl_pq]
+
+            if state:
+                # if one qubit is measured multiple times, we need to evict previous results
+                if ctrl_pq in latency_cache:
+                    cached_latency = latency_cache[ctrl_pq]
+                    if isclose(cached_latency, dt_inner):
+                        ctrl_latency += dt_inner
+                        inner_latency += dt_inner
+                    else:
+                        ctrl_latency += dt_inter
+                        inter_latency += dt_inter
+                        num_inter_cif += 1
+                if is_inner:
+                    latency_cache[ctrl_pq] = dt_inner
+                else:
+                    latency_cache[ctrl_pq] = dt_inter
+            else:
+                # the measurement result is not used for the first time
+                # so these cif pairs only need one communication, and the latency
+                # is decided by the largest one. So we simply update cache here
+                assert ctrl_pq in latency_cache
+                if is_inner:
+                    cur_latency = dt_inner
+                else:
+                    cur_latency = dt_inter
+                latency_cache[ctrl_pq] = max(latency_cache[ctrl_pq], cur_latency)
+
+        for _, latency in latency_cache.items():
+            if isclose(latency, dt_inner):
+                ctrl_latency += dt_inner
+                inner_latency += dt_inner
+            else:
+                ctrl_latency += dt_inter
+                inter_latency += dt_inter
+                num_inter_cif += 1
+
+        self._inner_ctrl_latency = inner_latency
+        self._inter_ctrl_latency = inter_latency
+        self._num_cif_pairs = num_inter_cif
+        return ctrl_latency
+
+    # TODO: implement this function
+    def get_init_layout_ctrl_latency(
+        self, qc: QuantumCircuit, initial_layout: List[int]
+    ):
+        return 0
