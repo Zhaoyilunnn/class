@@ -41,6 +41,42 @@ def test_get_cif_qubit_pairs():
     print(qc.draw("text"))
 
 
+def test_get_cif_qubit_pairs_dqc_qft():
+    pe_path = "benchmarks/veriq-benchmark/dynamic/qft/dqc_qft_4.qasm"
+    if os.path.exists(pe_path):
+        qc = QuantumCircuit.from_qasm_file(pe_path)
+        pairs = get_cif_qubit_pairs(qc, with_states=True)
+
+        assert len(pairs) == 6
+
+        # Verify qubits correctness
+        assert pairs[0][0][0] is qc.qubits[1]
+        assert pairs[1][0][0] is qc.qubits[2]
+        assert pairs[2][0][0] is qc.qubits[3]
+        assert pairs[0][0][1] is qc.qubits[0]
+        assert pairs[1][0][1] is qc.qubits[0]
+        assert pairs[2][0][1] is qc.qubits[0]
+
+        assert pairs[3][0][0] is qc.qubits[2]
+        assert pairs[4][0][0] is qc.qubits[3]
+        assert pairs[3][0][1] is qc.qubits[1]
+        assert pairs[4][0][1] is qc.qubits[1]
+
+        assert pairs[5][0][0] is qc.qubits[3]
+        assert pairs[5][0][1] is qc.qubits[2]
+
+        # Verify states correctness
+        assert pairs[0][1] is True
+        assert pairs[1][1] is False
+        assert pairs[2][1] is False
+
+        assert pairs[3][1] is True
+        assert pairs[4][1] is False
+
+        assert pairs[5][1] is True
+        print(qc.draw("text"))
+
+
 def test_get_cif_qubit_pairs_creg_toy():
     creg = ClassicalRegister(2)
     qreg = QuantumRegister(2)

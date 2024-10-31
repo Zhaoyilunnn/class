@@ -40,7 +40,7 @@ def get_multi_op_list(qc: QuantumCircuit):
     return res
 
 
-def get_cif_qubit_pairs(qc: QuantumCircuit):
+def get_cif_qubit_pairs(qc: QuantumCircuit, with_states: bool = False):
     """Return all qubit pairs in all cif operations
 
     Args:
@@ -57,17 +57,24 @@ def get_cif_qubit_pairs(qc: QuantumCircuit):
 
     """
     # A mapping that records a clbit is measured based on which qubit
-    measure_map = {}
+    #  The value of this dict is a two-element list: [qubit, is_used],
+    #  the second element in the tuple is a flag that indicates whether
+    #  this measurement result has already been used
+    map_clbit_qubit = {}
 
     # Map of c register and qubits
     # This is useful because some qasm implementations (especially qasm2)
     # relies on c register results as conditions
     # So that the `condition` will be `ClassicalRegister` instead of `Clbit`
+    #  Similar to map_clbit_qubit, the value of this dict also includes a flag
+    #  indicating whether the measurement results has already been used
     map_creg_qubits = {}
 
     # Result
     #  here we use list[list[int]], because a qubit may be conditioned on another qubit for many times
     pairs = []
+    #  This is used to indicate whether the qubit in this pair is using the measurement result for the first time
+    states = []
 
     logger.debug(f"Looking for cif in the quantum circuit")
     for val in qc.data:
@@ -76,10 +83,11 @@ def get_cif_qubit_pairs(qc: QuantumCircuit):
             if operation.name == "measure":
                 assert len(cargs) == len(qargs)
                 for i, c in enumerate(cargs):
-                    measure_map[c] = qargs[i]
+                    map_clbit_qubit[c] = [qargs[i], False]
                     if isinstance(c, Clbit):
-                        map_creg_qubits.setdefault(c._register, [])
-                        map_creg_qubits[c._register].append(qargs[i])
+                        map_creg_qubits.setdefault(c._register, [[], False])
+                        map_creg_qubits[c._register][0].append(qargs[i])
+                        map_creg_qubits[c._register][1] = False
             if hasattr(operation, "condition") and operation.condition is not None:
                 cond = operation.condition
 
@@ -88,24 +96,39 @@ def get_cif_qubit_pairs(qc: QuantumCircuit):
                 if isinstance(cond[0], Clbit):
                     c = cond[0]
                     for q in qargs:
-                        pair = [q, measure_map[c]]
+                        cond_q, is_used = map_clbit_qubit[c]
+                        pair = [q, cond_q]
                         pairs.append(pair)
+                        if not is_used:
+                            map_clbit_qubit[c][1] = True
+                            states.append(True)
+                        else:
+                            states.append(False)
                 elif isinstance(cond[0], ClassicalRegister):
                     c = cond[0]
-                    cond_q_lst = map_creg_qubits[c]
+                    cond_q_lst, is_used = map_creg_qubits[c]
                     for cond_q in cond_q_lst:
                         for q in qargs:
                             pair = [q, cond_q]
                             pairs.append(pair)
+                            if not is_used:
+                                map_creg_qubits[c][1] = True
+                                states.append(True)
+                            else:
+                                states.append(False)
                 else:
                     assert (
                         False
                     ), "Found an operation with condition neither Clbit nor ClassicalRegister."
 
-    logger.debug(f" ===> measure_map: {measure_map}")
+    logger.debug(f" ===> measure_map: {map_clbit_qubit}")
     logger.debug(f" ===> result pairs: {pairs}")
 
-    return pairs
+    assert len(pairs) == len(states)
+    if not with_states:
+        return pairs
+    else:
+        return [[pairs[i], states[i]] for i in range(len(states))]
 
 
 def get_backend_dt(backend: Backend) -> float:

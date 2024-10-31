@@ -196,6 +196,7 @@ def gen_qc(
             ARGS.qasm, f"{qc_type}/dqc_{qc_type}_{num_qubits}.qasm"
         )
         qc = QuantumCircuit.from_qasm_file(file_path)
+        qc.draw(output="latex", filename="dqc.pdf")
         qc_lst.append(qc)
     elif qc_type == "cc":
         assert num_qubits in [12, 32, 64, 151, 301]

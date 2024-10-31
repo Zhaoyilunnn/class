@@ -219,6 +219,11 @@ class Eval:
 
 class EvalV2(Eval):
     def calc_orig_latency(self, qc: QuantumCircuit, backend: Backend):
+        """
+        Only count 1-q operation and 2-q operation time
+        1-q: 20 ns
+        2-q: 40 ns
+        """
         res = 0.0
         for val in qc.data:
             if isinstance(val, CircuitInstruction):
