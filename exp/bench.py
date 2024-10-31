@@ -15,7 +15,7 @@ from dqcmap.basecompiler import BaseCompiler
 from dqcmap.compilers import QiskitDefaultCompiler, SingleCtrlCompiler
 from dqcmap.compilers.multi_ctrl_compiler import MultiCtrlCompiler
 from dqcmap.controller import MapStratety
-from dqcmap.evaluator import Eval, EvalV2
+from dqcmap.evaluator import Eval, EvalV2, EvalV3
 from dqcmap.exceptions import DqcMapException
 from dqcmap.utils import check_swap_needed, get_synthetic_dqc
 from dqcmap.utils.cm import CmHelper
@@ -196,7 +196,7 @@ def gen_qc(
             ARGS.qasm, f"{qc_type}/dqc_{qc_type}_{num_qubits}.qasm"
         )
         qc = QuantumCircuit.from_qasm_file(file_path)
-        qc.draw(output="latex", filename="dqc.pdf")
+        # qc.draw(output="latex", filename="dqc.pdf")
         qc_lst.append(qc)
     elif qc_type == "cc":
         assert num_qubits in [12, 32, 64, 151, 301]
@@ -398,7 +398,8 @@ def main():
     conf = ControllerConfig(
         dev.configuration().n_qubits, num_ctrls, strategy=MapStratety.CONNECT, cm=cm
     )
-    evaluator = EvalV2(conf)
+    evaluator = EvalV3(conf)
+    # evaluator = EvalV2(conf)
     # evaluator = Eval(conf)
 
     compiler_name_lst = parse_compiler_methods(ARGS.comp)

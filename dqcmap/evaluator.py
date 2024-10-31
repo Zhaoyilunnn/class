@@ -346,3 +346,9 @@ class EvalV3(EvalV2):
         self._inter_ctrl_latency = inter_latency
         self._num_cif_pairs = num_inter_cif
         return ctrl_latency
+
+    # TODO: implement this function
+    def get_init_layout_ctrl_latency(
+        self, qc: QuantumCircuit, initial_layout: List[int]
+    ):
+        return 0
