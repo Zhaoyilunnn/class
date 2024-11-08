@@ -193,15 +193,6 @@ def gen_qc(
 ):
     qc_lst = []
 
-    # first check if the qc_type argument is a file
-    if os.path.isfile(qc_type):
-        for dqc_name, nq in parse_qc_file(qc_type):
-            single_qc = gen_qc(
-                1, nq, nq, cond_ratio, use_qiskit, seed_base=seed_base, qc_type=dqc_name
-            )
-            qc_lst.append(single_qc[0])
-        return qc_lst
-
     if qc_type == "random":
         for idx in range(num_qc):
             # https://github.com/Zhaoyilunnn/dqc-map/issues/3
@@ -265,6 +256,8 @@ def parse_compiler_methods(args_comp: str):
 
 @dataclass
 class Result:
+    name: str = "random"
+    num_qubits: int = 10
     compiler_method: str = "multi_ctrl"
     runtime: float = 0.0
     perc_inter: float = 0.0
@@ -304,11 +297,15 @@ def process_results(
     depth_dict = {}
     init_ctrl_latency_dict = {}
     num_cif_pairs_dict = {}
+    bench_names_dict = {}
+    nq_dict = {}
 
     for res in result_lst:
         if not isinstance(res, Result):
             raise DqcMapException(f"Some circuit run failed due to {type(res)}: {res}")
 
+        bench_names_dict.setdefault(res.compiler_method, [])
+        nq_dict.setdefault(res.compiler_method, [])
         perc_inter_dict.setdefault(res.compiler_method, [])
         runtime_dict.setdefault(res.compiler_method, [])
         num_op_dict.setdefault(res.compiler_method, [])
@@ -316,6 +313,8 @@ def process_results(
         init_ctrl_latency_dict.setdefault(res.compiler_method, [])
         num_cif_pairs_dict.setdefault(res.compiler_method, [])
 
+        bench_names_dict[res.compiler_method].append(res.name)
+        nq_dict[res.compiler_method].append(res.num_qubits)
         perc_inter_dict[res.compiler_method].append(res.perc_inter)
         runtime_dict[res.compiler_method].append(res.runtime)
         num_op_dict[res.compiler_method].append(res.num_ops)
@@ -323,11 +322,12 @@ def process_results(
         init_ctrl_latency_dict[res.compiler_method].append(res.init_ctrl_latency)
         num_cif_pairs_dict[res.compiler_method].append(res.num_cif_pairs)
 
-    bench_name = f"{ARGS.bench}_{num_qubits}"
     for name in perc_inter_dict.keys():
         if individual_results:
             # Output each result individually
             for i in range(len(perc_inter_dict[name])):
+                bench_name = bench_names_dict[name][i]
+                nq = nq_dict[name][i]
                 percent = perc_inter_dict[name][i]
                 runtime = runtime_dict[name][i]
                 num_op = num_op_dict[name][i]
@@ -337,13 +337,13 @@ def process_results(
                 impl = _get_impl_name(name, ARGS.opt, ARGS.heuristic, ARGS.rt)
 
                 print(
-                    f"{bench_name}\t{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{init_ctrl_latency}\t{num_cif_pairs}\t{impl}"
+                    f"{bench_name}\t{nq}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{init_ctrl_latency}\t{num_cif_pairs}\t{impl}"
                 )
                 if ARGS.wr and csv_writer is not None:
                     csv_writer.writerow(
                         [
                             bench_name,
-                            num_qubits,
+                            nq,
                             name,
                             percent,
                             runtime,
@@ -355,6 +355,7 @@ def process_results(
                         ]
                     )
         else:
+            bench_name = f"{ARGS.bench}_{num_qubits}"
             # Output the average of results
             percent = np.mean(perc_inter_dict[name])
             runtime = np.mean(runtime_dict[name])
@@ -393,6 +394,8 @@ def run_circuit(
     conf,
     layout_method,
     compiler_name,
+    bench_name="random",
+    num_qubits=10,
 ):
     debug_qc(qc)
     compiler = COMPILERS[compiler_name](conf)
@@ -439,6 +442,8 @@ def run_circuit(
     depth = tqc.depth()
     # return perc_inter, total_latency, num_op
     return Result(
+        name=bench_name,
+        num_qubits=num_qubits,
         compiler_method=compiler_name,
         runtime=total_latency,
         perc_inter=perc_inter,
@@ -469,7 +474,11 @@ def main():
     compiler_name_lst = parse_compiler_methods(ARGS.comp)
 
     # print result table header
-    res_file_name = f"{ARGS.bench}_{ARGS.comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}_ctrl_{ARGS.ctrl}.csv"
+    comp = "_".join(ARGS.comp.split(","))
+    bench = os.path.basename(ARGS.bench) if os.path.isfile(ARGS.bench) else ARGS.bench
+    res_file_name = (
+        f"{bench}_{comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}_ctrl_{ARGS.ctrl}.csv"
+    )
     res_file_path = os.path.join(ARGS.wr_path, res_file_name)
     print(
         "bench_name\tnum_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth\tinit_ctrl_latency\tnum_cif_pairs\timpl"
@@ -497,9 +506,25 @@ def main():
         )
 
     for n in nq_lst:
-        qc_lst = gen_qc(
-            num_circuits, n, n, ARGS.p, False, seed_base=seed, qc_type=ARGS.bench
-        )
+        qc_lst = []
+
+        individual_res = False
+        qc_name_lst = []  # list of names for benchmarks
+        qc_nq_lst = []  # list of `num_qubits` for benchmarks
+        # first check if the qc_type argument is a file
+        if os.path.isfile(ARGS.bench):
+            individual_res = True
+            for dqc_name, nq in parse_qc_file(ARGS.bench):
+                qc_name_lst.append(dqc_name)
+                qc_nq_lst.append(nq)
+                single_qc = gen_qc(
+                    1, nq, nq, ARGS.p, False, seed_base=seed, qc_type=dqc_name
+                )
+                qc_lst.append(single_qc[0])
+        else:
+            qc_lst = gen_qc(
+                num_circuits, n, n, ARGS.p, False, seed_base=seed, qc_type=ARGS.bench
+            )
         if ARGS.parallel:
             results = Parallel(n_jobs=-1)(
                 delayed(run_circuit)(
@@ -511,8 +536,10 @@ def main():
                     conf,
                     layout_method,
                     name,
+                    bench_name=qc_name_lst[i],
+                    num_qubits=qc_nq_lst[i],
                 )
-                for qc in qc_lst
+                for i, qc in enumerate(qc_lst)
                 for layout_method in ["dqcmap"]
                 for name in compiler_name_lst
             )
@@ -520,7 +547,7 @@ def main():
             results = [res for res in results]
         else:
             results = []
-            for qc in qc_lst:
+            for i, qc in enumerate(qc_lst):
                 for layout_method in ["dqcmap"]:
                     for name in compiler_name_lst:
                         res = run_circuit(
@@ -532,9 +559,11 @@ def main():
                             conf,
                             layout_method,
                             name,
+                            bench_name=qc_name_lst[i],
+                            num_qubits=qc_nq_lst[i],
                         )
                         results.append(res)
-        process_results(results, n, csv_writer)
+        process_results(results, n, csv_writer, individual_results=individual_res)
 
     if f:
         f.close()
