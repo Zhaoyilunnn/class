@@ -185,7 +185,7 @@ def parse_qc_file(file_name):
             num_qubits = items[1]
             assert dqc_name in DQC_BENCH
             assert num_qubits.isdigit()
-            yield dqc_name, num_qubits
+            yield dqc_name, int(num_qubits)
 
 
 def gen_qc(
@@ -200,6 +200,7 @@ def gen_qc(
                 1, nq, nq, cond_ratio, use_qiskit, seed_base=seed_base, qc_type=dqc_name
             )
             qc_lst.append(single_qc[0])
+        return qc_lst
 
     if qc_type == "random":
         for idx in range(num_qc):
