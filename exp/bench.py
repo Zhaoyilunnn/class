@@ -28,6 +28,9 @@ COMPILERS: Dict[str, Type[BaseCompiler]] = {
 }
 
 
+DQC_BENCH = {"random", "pe", "cc", "qft"}
+
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--n", type=str, default=10, help="Number of qubits")
@@ -109,7 +112,10 @@ def get_args():
         "--bench",
         default="random",
         type=str,
-        help="Type of benchmarks. Now we support `random`, `pe`, `qft`, and `cc`.",
+        help="Type of benchmarks. Now we support `random`, `pe`, `qft`, and `cc`. "
+        "Can also specify a file consisting of a list of benchmarks. "
+        "Note that if this argument is a file, its name cannot be the same as a specific benchmark name."
+        "And if given a file, random circuits will generate only one instance.",
     )
 
     return parser.parse_args()
@@ -170,10 +176,30 @@ def get_benchmark(
     return qc
 
 
+def parse_qc_file(file_name):
+    with open(file_name, "r") as f:
+        for line in f:
+            items = line.strip().split("_")
+            assert len(items) == 2
+            dqc_name = items[0]
+            num_qubits = items[1]
+            assert dqc_name in DQC_BENCH
+            assert num_qubits.isdigit()
+            yield dqc_name, num_qubits
+
+
 def gen_qc(
     num_qc, num_qubits, depth, cond_ratio, use_qiskit, seed_base=1900, qc_type="random"
 ):
     qc_lst = []
+
+    # first check if the qc_type argument is a file
+    if os.path.isfile(qc_type):
+        for dqc_name, nq in parse_qc_file(qc_type):
+            single_qc = gen_qc(
+                1, nq, nq, cond_ratio, use_qiskit, seed_base=seed_base, qc_type=dqc_name
+            )
+            qc_lst.append(single_qc[0])
 
     if qc_type == "random":
         for idx in range(num_qc):
@@ -265,7 +291,12 @@ def _get_impl_name(compiler_name, opt_level, heuristic, routing_method):
     return "unknown"
 
 
-def process_results(result_lst: List[Result | None], num_qubits: int, csv_writer):
+def process_results(
+    result_lst: List[Result | None],
+    num_qubits: int,
+    csv_writer,
+    individual_results: bool = False,
+):
     perc_inter_dict = {}
     runtime_dict = {}
     num_op_dict = {}
@@ -292,32 +323,64 @@ def process_results(result_lst: List[Result | None], num_qubits: int, csv_writer
         num_cif_pairs_dict[res.compiler_method].append(res.num_cif_pairs)
 
     bench_name = f"{ARGS.bench}_{num_qubits}"
-    for name, res_lst in perc_inter_dict.items():
-        percent = np.mean(res_lst)
-        runtime = np.mean(runtime_dict[name])
-        num_op = np.mean(num_op_dict[name])
-        depth = np.mean(depth_dict[name])
-        init_ctrl_latency = np.mean(init_ctrl_latency_dict[name])
-        num_cif_pairs = np.mean(num_cif_pairs_dict[name])
-        impl = _get_impl_name(name, ARGS.opt, ARGS.heuristic, ARGS.rt)
-        print(
-            f"{bench_name}\t{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{init_ctrl_latency}\t{num_cif_pairs}\t{impl}"
-        )
-        if ARGS.wr and csv_writer is not None:
-            csv_writer.writerow(
-                [
-                    bench_name,
-                    num_qubits,
-                    name,
-                    percent,
-                    runtime,
-                    num_op,
-                    depth,
-                    init_ctrl_latency,
-                    num_cif_pairs,
-                    impl,
-                ]
+    for name in perc_inter_dict.keys():
+        if individual_results:
+            # Output each result individually
+            for i in range(len(perc_inter_dict[name])):
+                percent = perc_inter_dict[name][i]
+                runtime = runtime_dict[name][i]
+                num_op = num_op_dict[name][i]
+                depth = depth_dict[name][i]
+                init_ctrl_latency = init_ctrl_latency_dict[name][i]
+                num_cif_pairs = num_cif_pairs_dict[name][i]
+                impl = _get_impl_name(name, ARGS.opt, ARGS.heuristic, ARGS.rt)
+
+                print(
+                    f"{bench_name}\t{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{init_ctrl_latency}\t{num_cif_pairs}\t{impl}"
+                )
+                if ARGS.wr and csv_writer is not None:
+                    csv_writer.writerow(
+                        [
+                            bench_name,
+                            num_qubits,
+                            name,
+                            percent,
+                            runtime,
+                            num_op,
+                            depth,
+                            init_ctrl_latency,
+                            num_cif_pairs,
+                            impl,
+                        ]
+                    )
+        else:
+            # Output the average of results
+            percent = np.mean(perc_inter_dict[name])
+            runtime = np.mean(runtime_dict[name])
+            num_op = np.mean(num_op_dict[name])
+            depth = np.mean(depth_dict[name])
+            init_ctrl_latency = np.mean(init_ctrl_latency_dict[name])
+            num_cif_pairs = np.mean(num_cif_pairs_dict[name])
+            impl = _get_impl_name(name, ARGS.opt, ARGS.heuristic, ARGS.rt)
+
+            print(
+                f"{bench_name}\t{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{init_ctrl_latency}\t{num_cif_pairs}\t{impl}"
             )
+            if ARGS.wr and csv_writer is not None:
+                csv_writer.writerow(
+                    [
+                        bench_name,
+                        num_qubits,
+                        name,
+                        percent,
+                        runtime,
+                        num_op,
+                        depth,
+                        init_ctrl_latency,
+                        num_cif_pairs,
+                        impl,
+                    ]
+                )
 
 
 def run_circuit(
@@ -398,8 +461,8 @@ def main():
     conf = ControllerConfig(
         dev.configuration().n_qubits, num_ctrls, strategy=MapStratety.CONNECT, cm=cm
     )
-    evaluator = EvalV3(conf)
-    # evaluator = EvalV2(conf)
+    # evaluator = EvalV3(conf)
+    evaluator = EvalV2(conf)
     # evaluator = Eval(conf)
 
     compiler_name_lst = parse_compiler_methods(ARGS.comp)
