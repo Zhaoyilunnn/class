@@ -65,3 +65,13 @@ Run `python exp/bench.py -h` for detailed instructions and explanations of all c
 ```
 bash exp/run_main.sh
 ```
+
+
+## Table I
+
+```
+python exp/bench.py --comp baseline,multi_ctrl --ctrl 4 --parallel 1 --opt 6 --t 0.2 --rt dqcswap --bench exp/benchmarks.lst --wr 1 --wr-path exp/data/paper
+
+# Then use following scripts to generate latex table code
+python exp/gen_main_res_table.py exp/data/paper/benchmarks.lst_baseline_multi_ctrl_dqcswap_dqcmap_opt_6_ctrl_4.csv
+```
