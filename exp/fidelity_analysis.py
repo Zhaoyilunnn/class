@@ -3,15 +3,20 @@
 import argparse
 import copy
 import random
+from time import sleep
 
 import numpy as np
-import qiskit
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit.random.utils import random_circuit
 from qiskit.providers.fake_provider import Fake127QPulseV1
 from qiskit.result.mitigation.utils import counts_to_vector
 from qiskit_aer import Aer
-from qiskit_aer.noise import noise_model
+from qiskit_ibm_runtime import QiskitRuntimeService
+from qiskit_ibm_runtime import SamplerV2 as Sampler
+from qiskit_ibm_runtime.constants import JobStatus
+from qiskit_ibm_runtime.fake_provider import FakeOsaka
+
+SERVICE = QiskitRuntimeService()
 
 
 def get_args():
@@ -40,8 +45,19 @@ def get_args():
 ARGS = get_args()
 
 
-def tvd(p_0: np.ndarray, p_1: np.ndarray):
-    """Calculate the total variation distance between two probability distributions"""
+def fidelity(p_0: np.ndarray, p_1: np.ndarray):
+    """
+    Calculate the total variation distance (TVD) between two probability distributions
+    and fidelity = 1 - TVD
+    """
+    if not np.isclose(np.sum(p_0), 1.0) or not np.isclose(np.sum(p_1), 1.0):
+        raise ValueError(f"The input should be valid probability distributions (sum=1)")
+
+    if len(p_0) != len(p_1):
+        raise ValueError(f"The two distributions should have equal length")
+
+    tvd = 0.5 * np.sum(np.abs(p_0 - p_1))
+    return 1 - tvd
 
 
 def gen_circuit():
@@ -85,6 +101,7 @@ def to_B(qc: QuantumCircuit):
     qc_B = copy.deepcopy(qc)
 
     # delay_period =
+    qc_B.barrier()
     qc_B.delay(500 * ARGS.co, unit="ns")
 
     qc_B.measure_all()
@@ -104,14 +121,16 @@ def run_ideal(qc_A: QuantumCircuit, qc_B: QuantumCircuit):
     counts_A = res_A.get_counts(tqc_A)
     counts_B = res_B.get_counts(tqc_B)
 
-    prob_A = counts_to_vector(counts_A, ARGS.n)
-    prob_B = counts_to_vector(counts_B, ARGS.n)
+    prob_A = counts_to_vector(counts_A, ARGS.n)[0]
+    prob_B = counts_to_vector(counts_B, ARGS.n)[0]
 
     return prob_A, prob_B
 
 
-def run_noisy(qc_A: QuantumCircuit, qc_B: QuantumCircuit):
-    dev = Fake127QPulseV1()
+def run_noisy_local(qc_A: QuantumCircuit, qc_B: QuantumCircuit):
+    """Use noisy simulator"""
+    # dev = Fake127QPulseV1()
+    dev = FakeOsaka()
 
     tqc_A = transpile(qc_A, backend=dev)
     tqc_B = transpile(qc_B, backend=dev)
@@ -122,8 +141,41 @@ def run_noisy(qc_A: QuantumCircuit, qc_B: QuantumCircuit):
     counts_A = res_A.get_counts(tqc_A)
     counts_B = res_B.get_counts(tqc_B)
 
-    prob_A = counts_to_vector(counts_A, ARGS.n)
-    prob_B = counts_to_vector(counts_B, ARGS.n)
+    prob_A = counts_to_vector(counts_A, ARGS.n)[0]
+    prob_B = counts_to_vector(counts_B, ARGS.n)[0]
+
+    return prob_A, prob_B
+
+
+def run_noisy(qc_A: QuantumCircuit, qc_B: QuantumCircuit):
+    """Submit to IBM cloud"""
+    # dev = Fake127QPulseV1()
+    dev = SERVICE.least_busy(operational=True, simulator=False)
+
+    tqc_A = transpile(qc_A, backend=dev)
+    tqc_B = transpile(qc_B, backend=dev)
+    print(
+        f"post-compilation depth\tdqc-map\t{tqc_A.depth()}\tbaseline\t{tqc_B.depth()}"
+    )
+
+    sampler = Sampler(mode=dev)
+    sampler.options.default_shots = 1024
+
+    job = sampler.run([tqc_A, tqc_B])
+    # job = SERVICE.job("cwrsb4cehebg008j12cg") # for retrieving results
+    print(f"job ID is {job.job_id()}")
+
+    while job.status() != "DONE":
+        sleep(0.5)
+
+    res_A = job.result()[0]
+    res_B = job.result()[1]
+
+    counts_A = res_A.data.meas.get_counts()
+    counts_B = res_B.data.meas.get_counts()
+
+    prob_A = counts_to_vector(counts_A, ARGS.n)[0]
+    prob_B = counts_to_vector(counts_B, ARGS.n)[0]
 
     return prob_A, prob_B
 
@@ -136,6 +188,11 @@ def main():
     prob_A, prob_B = run_ideal(qc_A, qc_B)
 
     noisy_prob_A, noisy_prob_B = run_noisy(qc_A, qc_B)
+
+    fid_A = fidelity(prob_A, noisy_prob_A)
+    fid_B = fidelity(prob_B, noisy_prob_B)
+
+    print(f"dqc-map\t{fid_A}\tbaseline\t{fid_B}")
 
 
 if __name__ == "__main__":
