@@ -18,17 +18,19 @@ from qiskit_ibm_runtime.fake_provider import FakeOsaka
 
 SERVICE = QiskitRuntimeService()
 
+DELTA = 500
+
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--n", default=10, type=int, help="Number of qubits")
-    parser.add_argument("--d", default=10, type=int, help="Circuit depth")
+    parser.add_argument("--n", default=2, type=int, help="Number of qubits")
+    parser.add_argument("--d", default=2, type=int, help="Circuit depth")
     parser.add_argument(
         "--s",
         "--swap-overhead",
         dest="so",
         type=int,
-        default="5",
+        default=1,
         help="Number of CNOTs that A is more than B",
     )
     parser.add_argument(
@@ -36,8 +38,14 @@ def get_args():
         "--communication-overhead",
         dest="co",
         type=int,
-        default=50,
+        default=5,
         help="Number of ICC (inter-controller communication steps) that B has more than A",
+    )
+    parser.add_argument(
+        "--scan",
+        dest="scan",
+        default=1,
+        help="Whether to run a series of experiments with the number of swap overhead increase",
     )
     return parser.parse_args()
 
@@ -80,11 +88,11 @@ def gen_circuit():
     return qc_base
 
 
-def to_A(qc: QuantumCircuit):
+def to_A(qc: QuantumCircuit, num_cnots: int = 1):
     """A has more cnots than B"""
     qc_A = copy.deepcopy(qc)
 
-    for _ in range(ARGS.so):
+    for _ in range(num_cnots):
         q0 = random.randint(0, ARGS.n - 1)
         q1 = random.randint(0, ARGS.n - 1)
         while q0 == q1:
@@ -96,13 +104,13 @@ def to_A(qc: QuantumCircuit):
     return qc_A
 
 
-def to_B(qc: QuantumCircuit):
+def to_B(qc: QuantumCircuit, num_icc: int = 5):
     """B has more ICC than A"""
     qc_B = copy.deepcopy(qc)
 
     # delay_period =
     qc_B.barrier()
-    qc_B.delay(500 * ARGS.co, unit="ns")
+    qc_B.delay(DELTA * num_icc, unit="ns")
 
     qc_B.measure_all()
 
@@ -182,17 +190,36 @@ def run_noisy(qc_A: QuantumCircuit, qc_B: QuantumCircuit):
 
 def main():
     qc = gen_circuit()
-    qc_A = to_A(qc)
-    qc_B = to_B(qc)
 
-    prob_A, prob_B = run_ideal(qc_A, qc_B)
+    if ARGS.scan:
+        for so in range(1, 11):
+            print(f"CNOT overhead={so}\tICC reduction={5*so}")
+            qc_A = to_A(qc, so)
+            qc_B = to_B(qc, 5 * so)
 
-    noisy_prob_A, noisy_prob_B = run_noisy(qc_A, qc_B)
+            prob_A, prob_B = run_ideal(qc_A, qc_B)
 
-    fid_A = fidelity(prob_A, noisy_prob_A)
-    fid_B = fidelity(prob_B, noisy_prob_B)
+            # noisy_prob_A, noisy_prob_B = run_noisy_local(qc_A, qc_B)  # for test
+            noisy_prob_A, noisy_prob_B = run_noisy(qc_A, qc_B)
 
-    print(f"dqc-map\t{fid_A}\tbaseline\t{fid_B}")
+            fid_A = fidelity(prob_A, noisy_prob_A)
+            fid_B = fidelity(prob_B, noisy_prob_B)
+
+            print(f"dqc-map\t{fid_A}\tbaseline\t{fid_B}")
+
+    else:
+        qc_A = to_A(qc, num_cnots=ARGS.so)
+        qc_B = to_B(qc, num_icc=ARGS.co)
+
+        prob_A, prob_B = run_ideal(qc_A, qc_B)
+
+        # noisy_prob_A, noisy_prob_B = run_noisy_local(qc_A, qc_B)  # for test
+        noisy_prob_A, noisy_prob_B = run_noisy(qc_A, qc_B)
+
+        fid_A = fidelity(prob_A, noisy_prob_A)
+        fid_B = fidelity(prob_B, noisy_prob_B)
+
+        print(f"dqc-map\t{fid_A}\tbaseline\t{fid_B}")
 
 
 if __name__ == "__main__":

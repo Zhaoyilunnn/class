@@ -97,11 +97,15 @@ def generate_grouped_latex_table(df):
     avg_values = {}
     for compiler in compiler_types:
         avg_values[compiler] = {
-            "num_op": df[df["compiler_type"] == compiler]["num_op"].mean(),
-            "depth": df[df["compiler_type"] == compiler]["depth"].mean(),
-            "num_cif_pairs": df[df["compiler_type"] == compiler][
-                "num_cif_pairs"
-            ].mean(),
+            "num_op": df[
+                (df["compiler_type"] == compiler) & (df["bench_name"] != "qft")
+            ]["num_op"].mean(),
+            "depth": df[
+                (df["compiler_type"] == compiler) & (df["bench_name"] != "qft")
+            ]["depth"].mean(),
+            "num_cif_pairs": df[
+                (df["compiler_type"] == compiler) & (df["bench_name"] != "qft")
+            ]["num_cif_pairs"].mean(),
         }
 
     # Add average row to the LaTeX table
