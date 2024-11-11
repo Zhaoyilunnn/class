@@ -5,6 +5,8 @@ import pandas as pd
 
 MAP_COMPILER_TYPE = {"baseline": "Baseline", "multi\\_ctrl": "\\name{}"}
 
+BENCHMARKS = ["qft", "cc", "pe", "random"]
+
 
 # Function to read CSV data from a specified file path
 def read_csv_from_file(filepath):
@@ -13,7 +15,7 @@ def read_csv_from_file(filepath):
 
 # Function to escape underscores in strings for LaTeX
 def escape_underscore(text):
-    return re.sub(r"_", r"\_", text)
+    return re.sub(r"_", r"\\_", text)
 
 
 # Function to generate LaTeX table grouped by compiler type
@@ -63,11 +65,11 @@ def generate_grouped_latex_table(df):
     latex_code += r"        \midrule" + "\n"
 
     # Iterate over each unique benchmark name
-    for bench_name in df["bench_name"].unique():
+    for bench_name in BENCHMARKS:
         # Get the number of qubits for this benchmark
         nq_lst = df[df["bench_name"] == bench_name]["num_qubits"].unique()
 
-        for nq in nq_lst:
+        for i, nq in enumerate(nq_lst):
             latex_code += f"        {escape_underscore(bench_name)} & {nq}"
 
             for compiler in compiler_types:
@@ -86,7 +88,31 @@ def generate_grouped_latex_table(df):
                 else:
                     latex_code += " & - & - & -"  # Use "-" if no data available
 
-            latex_code += r" \\" + "\n"
+            if i == len(nq_lst) - 1 and bench_name == "qft":
+                latex_code += r" \\ \midrule" + "\n"
+            else:
+                latex_code += r" \\" + "\n"
+
+    # Calculate average values for each compiler type
+    avg_values = {}
+    for compiler in compiler_types:
+        avg_values[compiler] = {
+            "num_op": df[df["compiler_type"] == compiler]["num_op"].mean(),
+            "depth": df[df["compiler_type"] == compiler]["depth"].mean(),
+            "num_cif_pairs": df[df["compiler_type"] == compiler][
+                "num_cif_pairs"
+            ].mean(),
+        }
+
+    # Add average row to the LaTeX table
+    latex_code += r"        \midrule" + "\n"
+    latex_code += r"        \textbf{Average} & -"
+    for compiler in compiler_types:
+        avg_num_op = avg_values[compiler]["num_op"]
+        avg_depth = avg_values[compiler]["depth"]
+        avg_num_cif_pairs = avg_values[compiler]["num_cif_pairs"]
+        latex_code += f" & {avg_num_op:.2f} & {avg_depth:.2f} & {avg_num_cif_pairs:.2f}"
+    latex_code += r" \\" + "\n"
 
     # Close the table
     latex_code += r"""        \bottomrule
