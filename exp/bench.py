@@ -215,6 +215,7 @@ def gen_qc(
         )
         qc = QuantumCircuit.from_qasm_file(file_path)
         # qc.draw(output="latex", filename="dqc.pdf")
+        print(qc.draw(output="latex_source"))
         qc_lst.append(qc)
     elif qc_type == "cc":
         assert num_qubits in [12, 32, 64, 151, 301]
@@ -525,6 +526,8 @@ def main():
             qc_lst = gen_qc(
                 num_circuits, n, n, ARGS.p, False, seed_base=seed, qc_type=ARGS.bench
             )
+            qc_name_lst = [ARGS.bench] * num_circuits
+            qc_nq_lst = nq_lst
         if ARGS.parallel:
             results = Parallel(n_jobs=-1)(
                 delayed(run_circuit)(
