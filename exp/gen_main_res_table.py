@@ -58,7 +58,7 @@ def generate_grouped_latex_table(df):
     latex_code += (
         " " * 8
         + "& & "
-        + " & ".join([r"\# Operations & Depth & \# ICC" for _ in compiler_types])
+        + " & ".join([r"\# Operations & Depth & \# ICCS" for _ in compiler_types])
         + r" \\"
         + "\n"
     )
