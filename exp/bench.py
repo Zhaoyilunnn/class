@@ -69,7 +69,7 @@ def get_args():
     parser.add_argument(
         "--opt",
         type=int,
-        default=2,
+        default=6,
         help="Optimization level used in dqcmap compiler. Note that this is different from qiskit transipler optimization level",
     )
     parser.add_argument(
@@ -116,6 +116,14 @@ def get_args():
         "Can also specify a file consisting of a list of benchmarks. "
         "Note that if this argument is a file, its name cannot be the same as a specific benchmark name."
         "And if given a file, random circuits will generate only one instance.",
+    )
+    parser.add_argument(
+        "--st",
+        "--show-mapper-runtime",
+        dest="show_mapper_runtime",
+        default=0,
+        type=int,
+        help="Whether to print runtime of mapper",
     )
 
     return parser.parse_args()
@@ -215,7 +223,7 @@ def gen_qc(
         )
         qc = QuantumCircuit.from_qasm_file(file_path)
         # qc.draw(output="latex", filename="dqc.pdf")
-        print(qc.draw(output="latex_source"))
+        # print(qc.draw(output="latex_source"))
         qc_lst.append(qc)
     elif qc_type == "cc":
         assert num_qubits in [12, 32, 64, 151, 301]
@@ -416,6 +424,7 @@ def run_circuit(
         opt_level=ARGS.opt,
         heuristic=ARGS.heuristic,
         swap_trials=ARGS.rt_trial,
+        show_mapper_runtime=ARGS.show_mapper_runtime,
     )
     layout = tqc.layout
     final_layout = layout.final_virtual_layout(filter_ancillas=True)

@@ -3,7 +3,6 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 ################# Matplotlib Global Conf #########################
 FIG_SIZE = (15, 5)
 fontsize = 27
@@ -18,7 +17,7 @@ plt.rcParams["ytick.labelsize"] = fontsize - 2
 # plt.rcParams["ytick.major.pad"] = -1
 plt.rcParams["axes.labelsize"] = fontsize
 plt.rcParams["axes.labelweight"] = "bold"
-plt.rcParams["legend.fontsize"] = fontsize - 10
+plt.rcParams["legend.fontsize"] = fontsize - 5
 ## below not working
 # plt.rcParams["patch.edgecolor"] = "black"
 # plt.rcParams["patch.linewidth"] = 1
@@ -63,7 +62,7 @@ def plot_comparison(data):
     x = np.arange(len(labels))  # the label locations
     width = 0.35  # the width of the bars
 
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(10, 4))
     rects1 = ax.bar(
         x - width / 2,
         baseline_values,
@@ -71,6 +70,8 @@ def plot_comparison(data):
         label="Baseline",
         edgecolor="black",
         linewidth=1,
+        hatch="/",
+        color="#2A9D8C",
     )
     rects2 = ax.bar(
         x + width / 2,
@@ -79,6 +80,7 @@ def plot_comparison(data):
         label="CLASS",
         edgecolor="black",
         linewidth=1,
+        color="#E66F51",
     )
 
     # Add some text for labels, title and custom x-axis tick labels, etc.

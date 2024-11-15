@@ -1,3 +1,4 @@
+import time
 from typing import List
 
 from dqcmap.basemapper import BaseMapper
@@ -28,8 +29,13 @@ def mapping(
     ctrl_conf: ControllerConfig,
     circ_prop: CircProperty,
     mapper_name: str = "trivial",
+    show_runtime: bool = False,
     **mapper_config,
 ):
     """Partition the coupling_map into subgraphs and prune the edges between subgraphs"""
     mapper = MapperProvider.get(mapper_name, *(ctrl_conf, circ_prop), **mapper_config)
-    return mapper.run()
+    start_time = time.perf_counter()
+    layout = mapper.run()
+    if show_runtime:
+        print(f"Runtime of mapper is {time.perf_counter() - start_time}")
+    return layout

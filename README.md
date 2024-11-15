@@ -81,3 +81,10 @@ python exp/gen_main_res_table.py exp/data/paper/benchmarks.lst_baseline_multi_ct
 ```
 for c in 4 5 6 7 8; do python exp/bench.py --n 30 --p 0.5 --c 1 --comp baseline,multi_ctrl --opt 6 --t 0.1 --bench random --parallel 1 --ctrl $c; done | tee exp/data/paper/ctrl_num_impact.txt
 ```
+
+## Runtime Analysis
+
+```
+python exp/bench.py --n 20,40,60,80,100 --p 0.9 --comp multi_ctrl --bench qft --c 1 --st 1 --parallel 0 --ctrl 5 | tee exp/data/paper/runtime_analysis_same_ctrl.txt
+python exp/plot_runtime_analysis.py exp/data/paper/runtime_analysis_same_ctrl.txt
+```
