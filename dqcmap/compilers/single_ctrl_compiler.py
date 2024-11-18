@@ -46,6 +46,7 @@ class SingleCtrlCompiler(BaseCompiler):
         opt_level=1,
         heuristic="dqcmap",
         swap_trials=5,
+        show_mapper_runtime=False,
     ):
         random.seed(seed_transpiler)
         c2pq = self._conf.ctrl_to_pq

@@ -178,5 +178,8 @@ temp.*
 *.swp
 nohup.out
 
+# tex
+*.aux
+
 # data
 # *.csv

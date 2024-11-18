@@ -1,0 +1,18 @@
+\documentclass[border=2px]{standalone}
+
+\usepackage[braket, qm]{qcircuit}
+\usepackage{graphicx}
+
+\begin{document}
+\scalebox{1.0}{
+\Qcircuit @C=1.0em @R=0.2em @!R { \\
+                \nghost{{q}_{1} :  } & \lstick{{q}_{1} :  } & \gate{\mathrm{H}} & \meter & \qw & \qw & \qw & \qw & \qw & \qw & \qw & \qw & \qw & \qw & \qw & \qw\\
+                \nghost{{q}_{2} :  } & \lstick{{q}_{2} :  } & \qw & \qw & \gate{\mathrm{U_1}\,(\mathrm{\frac{\pi}{2}})} & \gate{\mathrm{H}} & \qw & \meter & \qw & \qw & \qw & \qw & \qw & \qw & \qw & \qw\\
+                \nghost{{q}_{3} :  } & \lstick{{q}_{3} :  } & \qw & \qw & \qw & \gate{\mathrm{U_1}\,(\mathrm{\frac{\pi}{4}})} & \qw & \qw & \gate{\mathrm{U_1}\,(\mathrm{\frac{\pi}{2}})} & \gate{\mathrm{H}} & \meter & \qw & \qw & \qw & \qw & \qw\\
+                \nghost{{q}_{4} :  } & \lstick{{q}_{4} :  } & \qw & \qw & \qw & \qw & \gate{\mathrm{U_1}\,(\mathrm{\frac{\pi}{8}})} & \qw & \qw & \gate{\mathrm{U_1}\,(\mathrm{\frac{\pi}{4}})} & \qw & \gate{\mathrm{U_1}\,(\mathrm{\frac{\pi}{2}})} & \gate{\mathrm{H}} & \meter & \qw & \qw\\
+                \nghost{{c}_{1} :  } & \lstick{{c_1} :  } & \lstick{/_{_{1}}} \cw & \dstick{_{_{\hspace{0.0em}0}}} \cw \ar @{<=} [-4,0] & \control \cw^(0.0){^{\mathtt{0x1}}} \cwx[-3] & \control \cw^(0.0){^{\mathtt{0x1}}} \cwx[-2] & \control \cw^(0.0){^{\mathtt{0x1}}} \cwx[-1] & \cw & \cw & \cw & \cw & \cw & \cw & \cw & \cw & \cw\\
+                \nghost{{c}_{2} :  } & \lstick{{c_2} :  } & \lstick{/_{_{1}}} \cw & \cw & \cw & \cw & \cw & \dstick{_{_{\hspace{0.0em}0}}} \cw \ar @{<=} [-4,0] & \control \cw^(0.0){^{\mathtt{0x1}}} \cwx[-3] & \control \cw^(0.0){^{\mathtt{0x1}}} \cwx[-2] & \cw & \cw & \cw & \cw & \cw & \cw\\
+                \nghost{{c}_{3} :  } & \lstick{{c_3} :  } & \lstick{/_{_{1}}} \cw & \cw & \cw & \cw & \cw & \cw & \cw & \cw & \dstick{_{_{\hspace{0.0em}0}}} \cw \ar @{<=} [-4,0] & \control \cw^(0.0){^{\mathtt{0x1}}} \cwx[-3] & \cw & \cw & \cw & \cw\\
+                \nghost{{c}_{4} :  } & \lstick{{c_4} :  } & \lstick{/_{_{1}}} \cw & \cw & \cw & \cw & \cw & \cw & \cw & \cw & \cw & \cw & \cw & \dstick{_{_{\hspace{0.0em}0}}} \cw \ar @{<=} [-4,0] & \cw & \cw\\
+\\ }}
+\end{document}

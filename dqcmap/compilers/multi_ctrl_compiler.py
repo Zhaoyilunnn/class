@@ -41,6 +41,7 @@ class MultiCtrlCompiler(BaseCompiler):
         opt_level=1,
         heuristic="dqcmap",
         swap_trials=5,
+        show_mapper_runtime=False,
     ) -> _CircuitsT:
         """
         opt_level (int):
@@ -114,7 +115,12 @@ class MultiCtrlCompiler(BaseCompiler):
 
             # initial_layouts = mapping(self._conf, circ_prop, mapper_name="two_step")
             initial_layouts = [
-                mapping(self._conf, circ_prop, mapper_name="kl_partition")
+                mapping(
+                    self._conf,
+                    circ_prop,
+                    mapper_name="kl_partition",
+                    show_runtime=show_mapper_runtime,
+                )
                 for _ in range(1)
             ]
 

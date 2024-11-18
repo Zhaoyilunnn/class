@@ -28,6 +28,9 @@ COMPILERS: Dict[str, Type[BaseCompiler]] = {
 }
 
 
+DQC_BENCH = {"random", "pe", "cc", "qft"}
+
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--n", type=str, default=10, help="Number of qubits")
@@ -66,7 +69,7 @@ def get_args():
     parser.add_argument(
         "--opt",
         type=int,
-        default=2,
+        default=6,
         help="Optimization level used in dqcmap compiler. Note that this is different from qiskit transipler optimization level",
     )
     parser.add_argument(
@@ -109,7 +112,18 @@ def get_args():
         "--bench",
         default="random",
         type=str,
-        help="Type of benchmarks. Now we support `random`, `pe`, `qft`, and `cc`.",
+        help="Type of benchmarks. Now we support `random`, `pe`, `qft`, and `cc`. "
+        "Can also specify a file consisting of a list of benchmarks. "
+        "Note that if this argument is a file, its name cannot be the same as a specific benchmark name."
+        "And if given a file, random circuits will generate only one instance.",
+    )
+    parser.add_argument(
+        "--st",
+        "--show-mapper-runtime",
+        dest="show_mapper_runtime",
+        default=0,
+        type=int,
+        help="Whether to print runtime of mapper",
     )
 
     return parser.parse_args()
@@ -170,6 +184,18 @@ def get_benchmark(
     return qc
 
 
+def parse_qc_file(file_name):
+    with open(file_name, "r") as f:
+        for line in f:
+            items = line.strip().split("_")
+            assert len(items) == 2
+            dqc_name = items[0]
+            num_qubits = items[1]
+            assert dqc_name in DQC_BENCH
+            assert num_qubits.isdigit()
+            yield dqc_name, int(num_qubits)
+
+
 def gen_qc(
     num_qc, num_qubits, depth, cond_ratio, use_qiskit, seed_base=1900, qc_type="random"
 ):
@@ -197,6 +223,7 @@ def gen_qc(
         )
         qc = QuantumCircuit.from_qasm_file(file_path)
         # qc.draw(output="latex", filename="dqc.pdf")
+        # print(qc.draw(output="latex_source"))
         qc_lst.append(qc)
     elif qc_type == "cc":
         assert num_qubits in [12, 32, 64, 151, 301]
@@ -238,6 +265,8 @@ def parse_compiler_methods(args_comp: str):
 
 @dataclass
 class Result:
+    name: str = "random"
+    num_qubits: int = 10
     compiler_method: str = "multi_ctrl"
     runtime: float = 0.0
     perc_inter: float = 0.0
@@ -265,18 +294,27 @@ def _get_impl_name(compiler_name, opt_level, heuristic, routing_method):
     return "unknown"
 
 
-def process_results(result_lst: List[Result | None], num_qubits: int, csv_writer):
+def process_results(
+    result_lst: List[Result | None],
+    num_qubits: int,
+    csv_writer,
+    individual_results: bool = False,
+):
     perc_inter_dict = {}
     runtime_dict = {}
     num_op_dict = {}
     depth_dict = {}
     init_ctrl_latency_dict = {}
     num_cif_pairs_dict = {}
+    bench_names_dict = {}
+    nq_dict = {}
 
     for res in result_lst:
         if not isinstance(res, Result):
             raise DqcMapException(f"Some circuit run failed due to {type(res)}: {res}")
 
+        bench_names_dict.setdefault(res.compiler_method, [])
+        nq_dict.setdefault(res.compiler_method, [])
         perc_inter_dict.setdefault(res.compiler_method, [])
         runtime_dict.setdefault(res.compiler_method, [])
         num_op_dict.setdefault(res.compiler_method, [])
@@ -284,6 +322,8 @@ def process_results(result_lst: List[Result | None], num_qubits: int, csv_writer
         init_ctrl_latency_dict.setdefault(res.compiler_method, [])
         num_cif_pairs_dict.setdefault(res.compiler_method, [])
 
+        bench_names_dict[res.compiler_method].append(res.name)
+        nq_dict[res.compiler_method].append(res.num_qubits)
         perc_inter_dict[res.compiler_method].append(res.perc_inter)
         runtime_dict[res.compiler_method].append(res.runtime)
         num_op_dict[res.compiler_method].append(res.num_ops)
@@ -291,33 +331,67 @@ def process_results(result_lst: List[Result | None], num_qubits: int, csv_writer
         init_ctrl_latency_dict[res.compiler_method].append(res.init_ctrl_latency)
         num_cif_pairs_dict[res.compiler_method].append(res.num_cif_pairs)
 
-    bench_name = f"{ARGS.bench}_{num_qubits}"
-    for name, res_lst in perc_inter_dict.items():
-        percent = np.mean(res_lst)
-        runtime = np.mean(runtime_dict[name])
-        num_op = np.mean(num_op_dict[name])
-        depth = np.mean(depth_dict[name])
-        init_ctrl_latency = np.mean(init_ctrl_latency_dict[name])
-        num_cif_pairs = np.mean(num_cif_pairs_dict[name])
-        impl = _get_impl_name(name, ARGS.opt, ARGS.heuristic, ARGS.rt)
-        print(
-            f"{bench_name}\t{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{init_ctrl_latency}\t{num_cif_pairs}\t{impl}"
-        )
-        if ARGS.wr and csv_writer is not None:
-            csv_writer.writerow(
-                [
-                    bench_name,
-                    num_qubits,
-                    name,
-                    percent,
-                    runtime,
-                    num_op,
-                    depth,
-                    init_ctrl_latency,
-                    num_cif_pairs,
-                    impl,
-                ]
+    for name in perc_inter_dict.keys():
+        if individual_results:
+            # Output each result individually
+            for i in range(len(perc_inter_dict[name])):
+                bench_name = bench_names_dict[name][i]
+                nq = nq_dict[name][i]
+                percent = perc_inter_dict[name][i]
+                runtime = runtime_dict[name][i]
+                num_op = num_op_dict[name][i]
+                depth = depth_dict[name][i]
+                init_ctrl_latency = init_ctrl_latency_dict[name][i]
+                num_cif_pairs = num_cif_pairs_dict[name][i]
+                impl = _get_impl_name(name, ARGS.opt, ARGS.heuristic, ARGS.rt)
+
+                print(
+                    f"{bench_name}\t{nq}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{init_ctrl_latency}\t{num_cif_pairs}\t{impl}"
+                )
+                if ARGS.wr and csv_writer is not None:
+                    csv_writer.writerow(
+                        [
+                            bench_name,
+                            nq,
+                            name,
+                            percent,
+                            runtime,
+                            num_op,
+                            depth,
+                            init_ctrl_latency,
+                            num_cif_pairs,
+                            impl,
+                        ]
+                    )
+        else:
+            bench_name = f"{ARGS.bench}_{num_qubits}"
+            # Output the average of results
+            percent = np.mean(perc_inter_dict[name])
+            runtime = np.mean(runtime_dict[name])
+            num_op = np.mean(num_op_dict[name])
+            depth = np.mean(depth_dict[name])
+            init_ctrl_latency = np.mean(init_ctrl_latency_dict[name])
+            num_cif_pairs = np.mean(num_cif_pairs_dict[name])
+            impl = _get_impl_name(name, ARGS.opt, ARGS.heuristic, ARGS.rt)
+
+            print(
+                f"{bench_name}\t{num_qubits}\t{name}\t{percent}\t{runtime}\t{num_op}\t{depth}\t{init_ctrl_latency}\t{num_cif_pairs}\t{impl}"
             )
+            if ARGS.wr and csv_writer is not None:
+                csv_writer.writerow(
+                    [
+                        bench_name,
+                        num_qubits,
+                        name,
+                        percent,
+                        runtime,
+                        num_op,
+                        depth,
+                        init_ctrl_latency,
+                        num_cif_pairs,
+                        impl,
+                    ]
+                )
 
 
 def run_circuit(
@@ -329,6 +403,8 @@ def run_circuit(
     conf,
     layout_method,
     compiler_name,
+    bench_name="random",
+    num_qubits=10,
 ):
     debug_qc(qc)
     compiler = COMPILERS[compiler_name](conf)
@@ -348,6 +424,7 @@ def run_circuit(
         opt_level=ARGS.opt,
         heuristic=ARGS.heuristic,
         swap_trials=ARGS.rt_trial,
+        show_mapper_runtime=ARGS.show_mapper_runtime,
     )
     layout = tqc.layout
     final_layout = layout.final_virtual_layout(filter_ancillas=True)
@@ -375,6 +452,8 @@ def run_circuit(
     depth = tqc.depth()
     # return perc_inter, total_latency, num_op
     return Result(
+        name=bench_name,
+        num_qubits=num_qubits,
         compiler_method=compiler_name,
         runtime=total_latency,
         perc_inter=perc_inter,
@@ -398,14 +477,18 @@ def main():
     conf = ControllerConfig(
         dev.configuration().n_qubits, num_ctrls, strategy=MapStratety.CONNECT, cm=cm
     )
-    evaluator = EvalV3(conf)
-    # evaluator = EvalV2(conf)
+    # evaluator = EvalV3(conf)
+    evaluator = EvalV2(conf)
     # evaluator = Eval(conf)
 
     compiler_name_lst = parse_compiler_methods(ARGS.comp)
 
     # print result table header
-    res_file_name = f"{ARGS.bench}_{ARGS.comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}_ctrl_{ARGS.ctrl}.csv"
+    comp = "_".join(ARGS.comp.split(","))
+    bench = os.path.basename(ARGS.bench) if os.path.isfile(ARGS.bench) else ARGS.bench
+    res_file_name = (
+        f"{bench}_{comp}_{ARGS.rt}_{ARGS.heuristic}_opt_{ARGS.opt}_ctrl_{ARGS.ctrl}.csv"
+    )
     res_file_path = os.path.join(ARGS.wr_path, res_file_name)
     print(
         "bench_name\tnum_qubits\tcompiler_type\tpercent_inter\truntime\tnum_op\tdepth\tinit_ctrl_latency\tnum_cif_pairs\timpl"
@@ -433,9 +516,27 @@ def main():
         )
 
     for n in nq_lst:
-        qc_lst = gen_qc(
-            num_circuits, n, n, ARGS.p, False, seed_base=seed, qc_type=ARGS.bench
-        )
+        qc_lst = []
+
+        individual_res = False
+        qc_name_lst = []  # list of names for benchmarks
+        qc_nq_lst = []  # list of `num_qubits` for benchmarks
+        # first check if the qc_type argument is a file
+        if os.path.isfile(ARGS.bench):
+            individual_res = True
+            for dqc_name, nq in parse_qc_file(ARGS.bench):
+                qc_name_lst.append(dqc_name)
+                qc_nq_lst.append(nq)
+                single_qc = gen_qc(
+                    1, nq, nq, ARGS.p, False, seed_base=seed, qc_type=dqc_name
+                )
+                qc_lst.append(single_qc[0])
+        else:
+            qc_lst = gen_qc(
+                num_circuits, n, n, ARGS.p, False, seed_base=seed, qc_type=ARGS.bench
+            )
+            qc_name_lst = [ARGS.bench] * num_circuits
+            qc_nq_lst = nq_lst
         if ARGS.parallel:
             results = Parallel(n_jobs=-1)(
                 delayed(run_circuit)(
@@ -447,8 +548,10 @@ def main():
                     conf,
                     layout_method,
                     name,
+                    bench_name=qc_name_lst[i],
+                    num_qubits=qc_nq_lst[i],
                 )
-                for qc in qc_lst
+                for i, qc in enumerate(qc_lst)
                 for layout_method in ["dqcmap"]
                 for name in compiler_name_lst
             )
@@ -456,7 +559,7 @@ def main():
             results = [res for res in results]
         else:
             results = []
-            for qc in qc_lst:
+            for i, qc in enumerate(qc_lst):
                 for layout_method in ["dqcmap"]:
                     for name in compiler_name_lst:
                         res = run_circuit(
@@ -468,9 +571,11 @@ def main():
                             conf,
                             layout_method,
                             name,
+                            bench_name=qc_name_lst[i],
+                            num_qubits=qc_nq_lst[i],
                         )
                         results.append(res)
-        process_results(results, n, csv_writer)
+        process_results(results, n, csv_writer, individual_results=individual_res)
 
     if f:
         f.close()
