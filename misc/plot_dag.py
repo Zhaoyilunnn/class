@@ -7,8 +7,8 @@ from qiskit.circuit import QuantumCircuit
 from qiskit.converters import circuit_to_dag
 from qiskit.visualization.dag_visualization import dag_drawer
 
-from dqcmap.utils.misc import get_synthetic_dqc
 from dqcmap.circuit_prop import CircProperty
+from dqcmap.utils.misc import get_synthetic_dqc
 
 
 def get_args():
@@ -42,7 +42,7 @@ def plot_cif_graph(cif_pairs: List[List[int]]):
         else:
             G.add_edge(node1, node2, weight=1)
 
-    pos = nx.spring_layout(G)  # 节点的布局方式
+    pos = nx.spring_layout(G)
     weights = nx.get_edge_attributes(G, "weight")
     labels = {e: w for e, w in weights.items()}
 
@@ -58,7 +58,7 @@ def plot_cif_graph(cif_pairs: List[List[int]]):
     nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
 
     # plt.title("Graph with Edge Weights")
-    plt.savefig("cif_graph.svg")  # 保存成 svg 文件
+    plt.savefig("cif_graph.svg")
     plt.show()
 
 

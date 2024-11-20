@@ -85,7 +85,7 @@ class TestRandomIntraControllerMapper:
             i: pq2c[initial_mapping[i]] for i in range(12)
         }  # logical qubit to controller
 
-        num_tests = 5  # 设置测试次数
+        num_tests = 5
         for i in range(num_tests):
             new_mapping = mapper.run(initial_mapping)
             assert len(new_mapping) == 12
