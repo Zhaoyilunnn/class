@@ -68,7 +68,6 @@ class IntraControllerOptimizer(BaseMapper):
         self.cross_controller_gates = self.count_cross_controller_gates(initial_mapping)
         ctrl_to_logical = self.get_ctrl_to_logical(initial_mapping)
         optimized_mapping = initial_mapping.copy()
-        # optimized_mapping字典化，key为logical qubit，value为physical qubit
         optimized_mapping_dict = {
             i: optimized_mapping[i] for i in range(self.n_logical)
         }
@@ -133,7 +132,6 @@ class IntraControllerOptimizer(BaseMapper):
         non_edge_physical_qubits = [
             pq for pq in physical_qubits if pq not in self.cross_controller_edges
         ]
-        # 对non_edge_physical_qubits进行排序，排序的依据是与edge_physical_qubits距离的总和，距离越小，排序越靠前
         non_edge_physical_qubits.sort(
             key=lambda pq: sum(
                 self.shortest_paths.get((pq, edge_pq), 1000)
