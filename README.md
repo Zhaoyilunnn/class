@@ -18,8 +18,10 @@ To set up the environment and build the project, follow the steps below:
 To verify that everything is set up correctly, you can run the tests for both Python and Rust components:
 
 - Python Tests: Run the following command to execute the Python test suite:
+  - `pip install pytest`
   - `pytest tests/`
 - Rust Tests: Run the following command to execute the Rust tests:
+  - If you use conda, it may be necessary to first explicitly set the environment variable `export LD_LIBRARY_PATH=<path-to-your-conda-installation>/envs/class/lib/`
   - `cargo test --no-default-features`
   - For more information on testing Rust components, see this guide (https://github.com/Qiskit/qiskit/blob/1.1.1/CONTRIBUTING.md#testing-rust-components).
 
