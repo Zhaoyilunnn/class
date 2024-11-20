@@ -30,20 +30,22 @@ We provide a script (`exp/bench.py`) to evaluate the performance of our approach
 - `--n`: Number of qubits.
 - `--p`: Probability of generating conditional gates when creating a random benchmark.
 - `--seed`: Random seed for reproducibility.
-- `--c`: Number of circuits for a given number of qubits, useful for averaging performance across multiple circuits.
+- `--c`: Number of circuits for a given number of qubits, useful for averaging performance across multiple random circuits.
 - `--log`: Enable logging for debugging purposes.
 - `--debug-only`: Specify which module should output debug information.
 - `--comp`: Compiler method or a list of methods (separated by `,`). Options:
   - `baseline`: Qiskit with SABRE.
   - `multi_ctrl`: The proposed controller-centric synthesizer (CLASS).
-- `--ctrl`: Number of controllers managing subgraphs of the coupling map.
+- `--ctrl`: Number of controllers (each managing a subgraph of the coupling map).
 - `--parallel`: Run circuits in parallel (disable when `--log` is enabled).
-- `--opt`: Optimization level for `dqcmap` compiler (different from Qiskit transpiler). `opt=6` represents the full CLASS implementation.
+- `--opt`: Optimization level for `multi_ctrl` compiler (different from Qiskit transpiler). `opt=6` represents the full CLASS implementation.
 - `--t`: Scaling factor for two-qubit gate time.
-- `--rt`: Routing method (e.g., `sabre` or `dqcswap`).
+- `--rt`: Routing method (gate scheduler). Options:
+  - `sabre`: The baseline method.
+  - `dqcswap`: The ICCS-Aware method in CLASS.
 - `--rt-trial`: Number of parallel swap trials during routing.
-- `--heuristic`: Heuristic for `dqcswap` routing.
-- `--wr`: Write results to a CSV file.
+- `--heuristic`: Heuristic for `dqcswap` routing. The default value `dqcmap` represents the methodology presented in Algorithm 3 of the paper.
+- `--wr`: Whether to write results to a CSV file.
 - `--wr-path`: Directory to save the result files.
 - `--qasm`: Directory containing QASM benchmark files.
 - `--bench`: Type of benchmark (e.g., `random`, `pe`, `qft`, `cc`) or a file with a list of benchmarks.
@@ -69,7 +71,7 @@ To reproduce the results from the paper, use the following commands (assuming a 
 
 - `python exp/plot_num_ctrl_impact.py exp/data/paper/ctrl_num_impact.txt`
 
-## Runtime Analysis
+## Runtime Analysis (Fig. 7)
 
 - `python exp/bench.py --n 20,40,60,80,100 --p 0.9 --comp multi_ctrl --bench qft --c 1 --st 1 --parallel 0 --ctrl 5 | tee exp/data/paper/runtime_analysis_same_ctrl.txt`
 
