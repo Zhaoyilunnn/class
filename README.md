@@ -11,6 +11,7 @@ To set up the environment and build the project, follow the steps below:
    - `conda create -y -n class python=3.11.9`
    - `conda activate class`
 3. Install the Project: Run the following command to install the project in editable mode:
+  - `git clone --recurse-submodules --depth 1 <link-of-this-project>`
    - `pip install -e .`
 
 # Running Tests
