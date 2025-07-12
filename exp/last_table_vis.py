@@ -142,7 +142,8 @@ for i, bar in enumerate(bars):
         f'{type_i_improvement_data["improvement"][i]:.2f}%',  # Changed to .2f to keep two decimal places
         ha="center",
         va="bottom",
-        fontsize=fontsize - 15,  # Changed from fontsize - 12 to fontsize - 15 (from 15 to 12)
+        fontsize=fontsize
+        - 15,  # Changed from fontsize - 12 to fontsize - 15 (from 15 to 12)
         fontweight="bold",
         rotation=45,
     )
@@ -215,7 +216,8 @@ for i, bar in enumerate(bars):
         f'{type_ii_improvement_data["improvement"][i]:.2f}%',  # Changed to .2f to keep two decimal places
         ha="center",
         va="bottom",
-        fontsize=fontsize - 15,  # Changed from fontsize - 12 to fontsize - 15 (from 15 to 12)
+        fontsize=fontsize
+        - 15,  # Changed from fontsize - 12 to fontsize - 15 (from 15 to 12)
         fontweight="bold",
         rotation=45,
     )
