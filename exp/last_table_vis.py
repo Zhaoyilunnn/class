@@ -133,16 +133,17 @@ bars = plt.bar(
 # Highlight the average bar with a different color
 bars[-1].set_color("#00008B")  # Darker blue for average
 
-# Add percentage labels with 45-degree rotation, keeping one decimal place
+# Add percentage labels with 45-degree rotation, keeping two decimal places
 for i, bar in enumerate(bars):
     height = bar.get_height()
     plt.text(
         bar.get_x() + bar.get_width() / 2.0,
         height + 1,
-        f'{type_i_improvement_data["improvement"][i]:.1f}%',  # Changed to .1f to keep one decimal place
+        f'{type_i_improvement_data["improvement"][i]:.2f}%',  # Changed to .2f to keep two decimal places
         ha="center",
         va="bottom",
-        fontsize=fontsize - 12,
+        fontsize=fontsize
+        - 15,  # Changed from fontsize - 12 to fontsize - 15 (from 15 to 12)
         fontweight="bold",
         rotation=45,
     )
@@ -206,16 +207,17 @@ bars = plt.bar(
 # Highlight the average bar with a different color
 bars[-1].set_color("#B22222")  # Darker red/orange for average
 
-# Add percentage labels with 45-degree rotation, keeping one decimal place
+# Add percentage labels with 45-degree rotation, keeping two decimal places
 for i, bar in enumerate(bars):
     height = bar.get_height()
     plt.text(
         bar.get_x() + bar.get_width() / 2.0,
         height + 1,
-        f'{type_ii_improvement_data["improvement"][i]:.1f}%',  # Changed to .1f to keep one decimal place
+        f'{type_ii_improvement_data["improvement"][i]:.2f}%',  # Changed to .2f to keep two decimal places
         ha="center",
         va="bottom",
-        fontsize=fontsize - 12,
+        fontsize=fontsize
+        - 15,  # Changed from fontsize - 12 to fontsize - 15 (from 15 to 12)
         fontweight="bold",
         rotation=45,
     )
@@ -266,9 +268,9 @@ plt.figure(figsize=FIG_SIZE)
 plt.axis("off")  # Turn off axis
 
 key_observations = f"""Key Observations:
-• Type-I (QFT) benchmarks: CLASS achieves an average improvement of {type_i_average_improvement:.1f}% in ICCS reduction
+• Type-I (QFT) benchmarks: CLASS achieves an average improvement of {type_i_average_improvement:.2f}% in ICCS reduction
 • For smaller QFT circuits (20, 30 qubits), CLASS achieves 100% elimination of ICCS
-• Type-II benchmarks: CLASS achieves an average improvement of {type_ii_average_improvement:.1f}% in ICCS reduction
+• Type-II benchmarks: CLASS achieves an average improvement of {type_ii_average_improvement:.2f}% in ICCS reduction
 • The improvement is generally more significant for smaller circuit sizes in both benchmark types
 • Operation count and circuit depth remain identical for Type-I benchmarks between CLASS and baseline"""
 
