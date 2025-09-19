@@ -30,7 +30,9 @@ To verify that everything is set up correctly, you can run the tests for both Py
 - Python Tests: Run the following command to execute the Python test suite:
   - `pytest tests/`
 - Rust Tests: Run the following command to execute the Rust tests:
-  - If you are in an virtual environment, it may be necessary to first explicitly set the environment variable, e.g., `export LD_LIBRARY_PATH=<path-to-your-conda-installation>/envs/class/lib/`
+  - If you are in a virtual environment, it may be necessary to first explicitly set the environment variable:
+    - **macOS**: `export DYLD_LIBRARY_PATH=<path-to-your-conda-installation>/envs/class/lib/`
+    - **Linux**: `export LD_LIBRARY_PATH=<path-to-your-conda-installation>/envs/class/lib/`
   - `cargo test --no-default-features`
   - For more information on testing Rust components, see this guide (<https://github.com/Qiskit/qiskit/blob/1.1.1/CONTRIBUTING.md#testing-rust-components>).
 
