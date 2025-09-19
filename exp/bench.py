@@ -7,7 +7,7 @@ from typing import Dict, List, Type
 
 import numpy as np
 from joblib import Parallel, delayed
-from qiskit import QuantumCircuit, qasm2, qasm3
+from qiskit import QuantumCircuit, qasm3
 from qiskit.providers.fake_provider import Fake127QPulseV1
 
 from dqcmap import ControllerConfig
@@ -15,11 +15,10 @@ from dqcmap.basecompiler import BaseCompiler
 from dqcmap.compilers import QiskitDefaultCompiler, SingleCtrlCompiler
 from dqcmap.compilers.multi_ctrl_compiler import MultiCtrlCompiler
 from dqcmap.controller import MapStratety
-from dqcmap.evaluator import Eval, EvalV2, EvalV3
+from dqcmap.evaluator import Eval, EvalV2
 from dqcmap.exceptions import DqcMapException
 from dqcmap.utils import check_swap_needed, get_synthetic_dqc
-from dqcmap.utils.cm import CmHelper
-from dqcmap.utils.misc import update_backend_cx_time, update_backend_cx_time_v2
+from dqcmap.utils.misc import update_backend_cx_time_v2
 
 COMPILERS: Dict[str, Type[BaseCompiler]] = {
     "baseline": QiskitDefaultCompiler,
@@ -162,7 +161,7 @@ else:
 def debug_qc(qc: QuantumCircuit):
     # print(qasm2.dumps(qc))
     logger = logging.getLogger(__name__)
-    logger.debug(f"Quantum Circuit::")
+    logger.debug("Quantum Circuit::")
     logger.debug(
         f" ===> OpenQASM3::\n{qasm3.dumps(qc)}\n ===> Circuit::\n{qc.draw('text')}"
     )
@@ -249,16 +248,16 @@ def parse_num_qubits(args_qubits: str | int):
         try:
             qubit_lst = [int(q) for q in args_qubits.split(",")]
             return qubit_lst
-        except Exception as e:
+        except Exception:
             raise ValueError(
-                f"--n option should be a digit or a list of digits splitted by a comma, i.e., 1,2,3,4"
+                "--n option should be a digit or a list of digits splitted by a comma, i.e., 1,2,3,4"
             )
 
 
 def parse_compiler_methods(args_comp: str):
     comp_lst = args_comp.split(",")
     for comp in comp_lst:
-        if not comp in COMPILERS:
+        if comp not in COMPILERS:
             raise ValueError(f"Supported compiler methods are {COMPILERS.keys()}")
     return comp_lst
 

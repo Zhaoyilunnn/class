@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import List
 
 from dqcmap.circuit_prop import CircProperty
 from dqcmap.controller import ControllerConfig

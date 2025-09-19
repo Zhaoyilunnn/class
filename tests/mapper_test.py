@@ -33,7 +33,7 @@ class TestTrivialMapper:
         assert circ_prop.cif_pairs == [[0, 1], [1, 2], [2, 3], [0, 1]]
 
         mapper = TrivialMapper(ctrl_conf, circ_prop)
-        res = mapper.run()
+        _ = mapper.run()
         # omit asserting the result due the reproducibility issue
         # assert res == [4, 5, 0, 1]
 
@@ -86,7 +86,7 @@ class TestRandomIntraControllerMapper:
         }  # logical qubit to controller
 
         num_tests = 5
-        for i in range(num_tests):
+        for _ in range(num_tests):
             new_mapping = mapper.run(initial_mapping)
             assert len(new_mapping) == 12
             assert set(new_mapping) == set(range(12))

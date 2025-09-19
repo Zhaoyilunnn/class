@@ -1,6 +1,6 @@
+import os
 import re
 import sys
-import os
 
 import pandas as pd
 
@@ -140,7 +140,7 @@ def wrap_latex_document(table_code):
 \usepackage{float}
 \usepackage{hyperref}
 \geometry{margin=1in}
-\newcommand{\name}{CLASS} 
+\newcommand{\name}{CLASS}
 \begin{document}
 """
         + table_code

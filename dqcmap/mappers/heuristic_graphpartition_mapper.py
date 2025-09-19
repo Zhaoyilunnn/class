@@ -1,5 +1,4 @@
 import random
-import time
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple
 
@@ -174,14 +173,14 @@ class HeuristicMapper(BaseMapper):
             current_ctrl = self.get_controller(mapping[qubit])
             for target_ctrl in range(self.n_controllers):
                 if target_ctrl != current_ctrl:
-                    self.move_gain_cache[
-                        (qubit, target_ctrl)
-                    ] = self.calculate_move_gain(mapping, qubit, target_ctrl)
+                    self.move_gain_cache[(qubit, target_ctrl)] = (
+                        self.calculate_move_gain(mapping, qubit, target_ctrl)
+                    )
                     for other_qubit in ctrl_to_logical[target_ctrl]:
                         if other_qubit in unmoved:
-                            self.swap_gain_cache[
-                                (qubit, other_qubit)
-                            ] = self.calculate_swap_gain(mapping, qubit, other_qubit)
+                            self.swap_gain_cache[(qubit, other_qubit)] = (
+                                self.calculate_swap_gain(mapping, qubit, other_qubit)
+                            )
 
     def update_gain_caches(
         self,
@@ -200,17 +199,17 @@ class HeuristicMapper(BaseMapper):
             current_ctrl = self.get_controller(mapping[qubit])
             for target_ctrl in range(self.n_controllers):
                 if target_ctrl != current_ctrl:
-                    self.move_gain_cache[
-                        (qubit, target_ctrl)
-                    ] = self.calculate_move_gain(mapping, qubit, target_ctrl)
+                    self.move_gain_cache[(qubit, target_ctrl)] = (
+                        self.calculate_move_gain(mapping, qubit, target_ctrl)
+                    )
                     for other_qubit in ctrl_to_logical[target_ctrl]:
                         if other_qubit in unmoved:
-                            self.swap_gain_cache[
-                                (qubit, other_qubit)
-                            ] = self.calculate_swap_gain(mapping, qubit, other_qubit)
-                            self.swap_gain_cache[
-                                (other_qubit, qubit)
-                            ] = self.swap_gain_cache[(qubit, other_qubit)]
+                            self.swap_gain_cache[(qubit, other_qubit)] = (
+                                self.calculate_swap_gain(mapping, qubit, other_qubit)
+                            )
+                            self.swap_gain_cache[(other_qubit, qubit)] = (
+                                self.swap_gain_cache[(qubit, other_qubit)]
+                            )
 
     def find_best_move(
         self,

@@ -139,7 +139,7 @@ for i, bar in enumerate(bars):
     plt.text(
         bar.get_x() + bar.get_width() / 2.0,
         height + 1,
-        f'{type_i_improvement_data["improvement"][i]:.2f}%',  # Changed to .2f to keep two decimal places
+        f"{type_i_improvement_data['improvement'][i]:.2f}%",  # Changed to .2f to keep two decimal places
         ha="center",
         va="bottom",
         fontsize=fontsize
@@ -213,7 +213,7 @@ for i, bar in enumerate(bars):
     plt.text(
         bar.get_x() + bar.get_width() / 2.0,
         height + 1,
-        f'{type_ii_improvement_data["improvement"][i]:.2f}%',  # Changed to .2f to keep two decimal places
+        f"{type_ii_improvement_data['improvement'][i]:.2f}%",  # Changed to .2f to keep two decimal places
         ha="center",
         va="bottom",
         fontsize=fontsize

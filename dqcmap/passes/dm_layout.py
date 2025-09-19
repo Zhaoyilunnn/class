@@ -13,18 +13,17 @@
 """
 Modified by dqcmap
 """
+
 import copy
 import dataclasses
 import functools
 import logging
 import time
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
 import rustworkx as rx
-from qiskit import ClassicalRegister
-from qiskit.circuit import Clbit, ControlFlowOp, QuantumRegister, SwitchCaseOp
-from qiskit.circuit.controlflow import condition_resources, node_resources
+from qiskit.circuit import QuantumRegister
 from qiskit.converters import dag_to_circuit
 from qiskit.dagcircuit import DAGCircuit
 from qiskit.transpiler.basepasses import TransformationPass
@@ -48,7 +47,8 @@ from dqcmap._accelerate.nlayout import NLayout
 from dqcmap._accelerate.sabre import (
     Heuristic,
     NeighborTable,
-    SabreDAG,
+    NodeBlockResults,
+    SwapMap,
     sabre_layout_and_routing,
 )
 from dqcmap.controller import ControllerConfig

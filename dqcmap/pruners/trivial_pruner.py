@@ -16,7 +16,7 @@ class TrivialPruner(BasePruner):
         super().__init__(sg_nodes_lst, coupling_map)
 
         if not (prob >= 0 and prob < 1):
-            raise ValueError(f"Pruning probability should be in [0, 1)")
+            raise ValueError("Pruning probability should be in [0, 1)")
         self._prob = prob
         self._base_seed = seed
 

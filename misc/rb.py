@@ -5,15 +5,12 @@ Reference:
     https://qiskit-community.github.io/qiskit-experiments/manuals/verification/randomized_benchmarking
 """
 
-
 import matplotlib.pyplot as plt
 import numpy as np
-import qiskit.circuit.library as circuits
 
 # For simulation
 from qiskit_aer import AerSimulator
-from qiskit_experiments.framework import BatchExperiment, ParallelExperiment
-from qiskit_experiments.library import InterleavedRB, StandardRB
+from qiskit_experiments.library import StandardRB
 from qiskit_ibm_runtime.fake_provider import FakePerth
 
 backend = AerSimulator.from_backend(FakePerth())

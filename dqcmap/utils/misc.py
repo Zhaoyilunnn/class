@@ -1,10 +1,10 @@
 import logging
 import random
 from collections.abc import Iterable
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, List, Optional, Set
 
 from qiskit import ClassicalRegister, QuantumCircuit
-from qiskit.circuit import CircuitInstruction, Clbit, Qubit
+from qiskit.circuit import CircuitInstruction, Clbit
 from qiskit.circuit.random.utils import random_circuit
 from qiskit.providers import Backend, BackendV1, BackendV2
 from qiskit.providers.fake_provider import FakeQasmBackend
@@ -24,7 +24,7 @@ def get_multi_op_list(qc: QuantumCircuit):
         A list of multi-qubit operations. Each op is represented as a list of qubit indices it applies to.
     """
 
-    logger.debug(f"Looking for multi-qubit operations in the quantum circuit")
+    logger.debug("Looking for multi-qubit operations in the quantum circuit")
 
     res = []
     for val in qc.data:
@@ -76,7 +76,7 @@ def get_cif_qubit_pairs(qc: QuantumCircuit, with_states: bool = False):
     #  This is used to indicate whether the qubit in this pair is using the measurement result for the first time
     states = []
 
-    logger.debug(f"Looking for cif in the quantum circuit")
+    logger.debug("Looking for cif in the quantum circuit")
     for val in qc.data:
         if isinstance(val, CircuitInstruction):
             operation, qargs, cargs = val.operation, val.qubits, val.clbits
@@ -117,9 +117,9 @@ def get_cif_qubit_pairs(qc: QuantumCircuit, with_states: bool = False):
                             else:
                                 states.append(False)
                 else:
-                    assert (
-                        False
-                    ), "Found an operation with condition neither Clbit nor ClassicalRegister."
+                    assert False, (
+                        "Found an operation with condition neither Clbit nor ClassicalRegister."
+                    )
 
     logger.debug(f" ===> measure_map: {map_clbit_qubit}")
     logger.debug(f" ===> result pairs: {pairs}")
@@ -171,19 +171,19 @@ def _gen_dqc_basic(
         qc.h(q)
 
     # currently each layer only contains measure, h, and cx
-    for l in range(n_layers):
+    for layer_idx in range(n_layers):
         for n in range(num_qubits):
             prob = random.random()
             if prob < cond_ratio:
-                qc.measure(measure_idxes[l][n], measure_idxes[l][n])
-                cond_cbit = qc.clbits[measure_idxes[l][n]]
-                qc.h(apply_qubits[l][n]).c_if(cond_cbit, 1)
+                qc.measure(measure_idxes[layer_idx][n], measure_idxes[layer_idx][n])
+                cond_cbit = qc.clbits[measure_idxes[layer_idx][n]]
+                qc.h(apply_qubits[layer_idx][n]).c_if(cond_cbit, 1)
             else:
-                if control_qubits[l][n] != target_qubits[l][n]:
+                if control_qubits[layer_idx][n] != target_qubits[layer_idx][n]:
                     logger.debug(
-                        f" ===> Adding cx between lq {control_qubits[l]} and {target_qubits[l]}"
+                        f" ===> Adding cx between lq {control_qubits[layer_idx]} and {target_qubits[layer_idx]}"
                     )
-                    qc.cx(control_qubits[l][n], target_qubits[l][n])
+                    qc.cx(control_qubits[layer_idx][n], target_qubits[layer_idx][n])
 
     return qc
 
@@ -449,10 +449,10 @@ def check_swap_needed(qc: QuantumCircuit, layout: Layout, cm: List[List[int]]) -
     # FIXME: here we only check two-qubit gates
     for val in qc.data:
         if isinstance(val, CircuitInstruction):
-            operation, qargs, cargs = val.operation, val.qubits, val.clbits
+            _, qargs, _ = val.operation, val.qubits, val.clbits
             if len(qargs) == 2:
                 pq0, pq1 = layout[qargs[0]], layout[qargs[1]]
-                if not [pq0, pq1] in cm:
+                if [pq0, pq1] not in cm:
                     return True
     return False
 

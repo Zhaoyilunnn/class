@@ -116,9 +116,6 @@ class IntraControllerOptimizer(BaseMapper):
         physical_qubits: List[int],
         optimized_mapping_dict: Dict[int, int],
     ) -> Dict[int, int]:
-        n_logical = len(logical_qubits)
-        n_physical = len(physical_qubits)
-
         # print(f"Optimizing controller {ctrl}: n_logical: {n_logical}, n_physical: {n_physical}")
 
         sorted_qubits = sorted(

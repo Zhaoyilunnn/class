@@ -17,7 +17,7 @@ git clone --recurse-submodules --depth 1 https://github.com/Zhaoyilunnn/class.gi
 cd class
 
 # with pip
-pip install -e '.[dev]'
+pip install -e ".[dev]"
 
 # or with uv
 uv sync --all-extras
@@ -92,7 +92,7 @@ For more details, run:
 
 - `python exp/bench.py -h`
 
-## Contributing
+## 🧡 Contributing
 
 To ensure your contributions meet project standards, please set up pre-commit hooks:
 

@@ -1,7 +1,7 @@
 import random
 import time
 from collections import defaultdict
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 from dqcmap.basemapper import BaseMapper
 from dqcmap.exceptions import DqcMapException
@@ -26,7 +26,6 @@ class KLMapper(BaseMapper):
             self.graph[v].append(u)
 
     def run(self) -> List[int]:
-        res = []
         start_time = time.time()
         time_limit = 4.0
         best_mapping = None

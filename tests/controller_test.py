@@ -1,5 +1,3 @@
-from qiskit.providers.fake_provider import Fake27QPulseV1
-
 from dqcmap.controller import ControllerConfig, MapStratety
 
 COUPLING_MAP_0 = [
