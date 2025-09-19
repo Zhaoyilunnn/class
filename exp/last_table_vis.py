@@ -1,6 +1,7 @@
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 
 # Create output directory if it doesn't exist
 output_dir = "exp/data/paper"
@@ -127,7 +128,9 @@ plt.xticks(x, type_i_improvement_data["name"], rotation=45, ha="right")
 plt.ylim(0, 105)  # Set y-axis limit from 0 to 105 to accommodate labels
 plt.grid(axis="y", linestyle="--", alpha=0.7)
 # plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "type_i_improvement_percentage.pdf"), bbox_inches="tight")
+plt.savefig(
+    os.path.join(output_dir, "type_i_improvement_percentage.pdf"), bbox_inches="tight"
+)
 plt.show()
 
 # 2. Improvement Percentage in Type-II Benchmarks
@@ -167,5 +170,7 @@ plt.ylabel("Improvement (%)", fontsize=fontsize - 5)
 plt.xticks(x, type_ii_improvement_data["name"], rotation=45, ha="right")
 plt.grid(axis="y", linestyle="--", alpha=0.7)
 # plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "type_ii_improvement_percentage.pdf"), bbox_inches="tight")
+plt.savefig(
+    os.path.join(output_dir, "type_ii_improvement_percentage.pdf"), bbox_inches="tight"
+)
 plt.show()
