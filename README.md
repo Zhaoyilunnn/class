@@ -1,20 +1,29 @@
-# Introduction
+# CLASS: A Controller-Centric Layout Synthesizer for Dynamic Quantum Circuits
 
 This repository contains the source code and scripts to reproduce the results presented in the paper: "CLASS: A Controller-Centric Layout Synthesizer for Dynamic Quantum Circuits".
 
-# Build and Installation
+## Build and Installation
 
 To set up the environment and build the project, follow the steps below:
 
-1. Install Rust: Follow the official guide (https://www.rust-lang.org/learn/get-started) to install Rust.
+1. Install Rust: Follow the official guide (<https://www.rust-lang.org/learn/get-started>) to install Rust.
 2. Create a Python Virtual Environment: You can use `venv`, Anaconda, or Miniconda to create a new environment. Example using conda:
    - `conda create -y -n class python=3.11.9`
    - `conda activate class`
 3. Install the Project: Run the following command to install the project in editable mode:
-  - `git clone --recurse-submodules --depth 1 <link-of-this-project>`
-   - `pip install -e .`
 
-# Running Tests
+```shell
+git clone --recurse-submodules --depth 1 https://github.com/Zhaoyilunnn/class.git
+cd class
+
+# with pip
+pip install -e .
+
+# or with uv
+uv sync
+```
+
+## Running Tests
 
 To verify that everything is set up correctly, you can run the tests for both Python and Rust components:
 
@@ -24,9 +33,32 @@ To verify that everything is set up correctly, you can run the tests for both Py
 - Rust Tests: Run the following command to execute the Rust tests:
   - If you use conda, it may be necessary to first explicitly set the environment variable `export LD_LIBRARY_PATH=<path-to-your-conda-installation>/envs/class/lib/`
   - `cargo test --no-default-features`
-  - For more information on testing Rust components, see this guide (https://github.com/Qiskit/qiskit/blob/1.1.1/CONTRIBUTING.md#testing-rust-components).
+  - For more information on testing Rust components, see this guide (<https://github.com/Qiskit/qiskit/blob/1.1.1/CONTRIBUTING.md#testing-rust-components>).
 
-# Usage
+## Reproducing Results
+
+To reproduce the results from the paper, use the following commands (assuming a Unix environment):
+
+### Table I
+
+- `python exp/bench.py --comp baseline,multi_ctrl --ctrl 4 --parallel 1 --opt 6 --t 0.2 --rt dqcswap --bench exp/benchmarks.lst --wr 1 --wr-path exp/data/paper`
+
+- Generate LaTeX table code:
+  - `python exp/gen_main_res_table.py exp/data/paper/benchmarks.lst_baseline_multi_ctrl_dqcswap_dqcmap_opt_6_ctrl_4.csv`
+
+### Impact of Controller Count (Figure 6)
+
+- `for c in 4 5 6 7 8; do python exp/bench.py --n 30 --p 0.5 --c 1 --comp baseline,multi_ctrl --opt 6 --t 0.1 --bench random --parallel 1 --ctrl $c; done | tee exp/data/paper/ctrl_num_impact.txt`
+
+- `python exp/plot_num_ctrl_impact.py exp/data/paper/ctrl_num_impact.txt`
+
+### Runtime Analysis (Fig. 7)
+
+- `python exp/bench.py --n 20,40,60,80,100 --p 0.9 --comp multi_ctrl --bench qft --c 1 --st 1 --parallel 0 --ctrl 5 | tee exp/data/paper/runtime_analysis_same_ctrl.txt`
+
+- `python exp/plot_runtime_analysis.py exp/data/paper/runtime_analysis_same_ctrl.txt`
+
+## Usage
 
 We provide a script (`exp/bench.py`) to evaluate the performance of our approach across various benchmarks. Below is a description of the script's options:
 
@@ -55,32 +87,10 @@ We provide a script (`exp/bench.py`) to evaluate the performance of our approach
 - `--st`, `--show-mapper-runtime`: Print runtime of mapper (initial placement).
 
 For more details, run:
+
 - `python exp/bench.py -h`
 
-# Reproducing Results
-
-To reproduce the results from the paper, use the following commands (assuming a Unix environment):
-
-## Table I
-
-- `python exp/bench.py --comp baseline,multi_ctrl --ctrl 4 --parallel 1 --opt 6 --t 0.2 --rt dqcswap --bench exp/benchmarks.lst --wr 1 --wr-path exp/data/paper`
-
-- Generate LaTeX table code:
-  - `python exp/gen_main_res_table.py exp/data/paper/benchmarks.lst_baseline_multi_ctrl_dqcswap_dqcmap_opt_6_ctrl_4.csv`
-
-## Impact of Controller Count (Figure 6)
-
-- `for c in 4 5 6 7 8; do python exp/bench.py --n 30 --p 0.5 --c 1 --comp baseline,multi_ctrl --opt 6 --t 0.1 --bench random --parallel 1 --ctrl $c; done | tee exp/data/paper/ctrl_num_impact.txt`
-
-- `python exp/plot_num_ctrl_impact.py exp/data/paper/ctrl_num_impact.txt`
-
-## Runtime Analysis (Fig. 7)
-
-- `python exp/bench.py --n 20,40,60,80,100 --p 0.9 --comp multi_ctrl --bench qft --c 1 --st 1 --parallel 0 --ctrl 5 | tee exp/data/paper/runtime_analysis_same_ctrl.txt`
-
-- `python exp/plot_runtime_analysis.py exp/data/paper/runtime_analysis_same_ctrl.txt`
-
-# Contributing
+## Contributing
 
 To ensure your contributions meet project standards, please set up pre-commit hooks:
 
@@ -88,4 +98,5 @@ To ensure your contributions meet project standards, please set up pre-commit ho
 - `pre-commit install`
 
 Before committing changes, run:
+
 - `git add . && pre-commit run`
