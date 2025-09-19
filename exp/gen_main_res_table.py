@@ -1,5 +1,6 @@
 import re
 import sys
+import os
 
 import pandas as pd
 
@@ -39,7 +40,7 @@ def generate_grouped_latex_table(df):
         \textbf{Benchmark} & \textbf{Qubits} & """
         + " & ".join(
             [
-                f"\multicolumn{{3}}{{c}}{{{MAP_COMPILER_TYPE[escape_underscore(compiler)]}}}"
+                f"\\multicolumn{{3}}{{c}}{{{MAP_COMPILER_TYPE[escape_underscore(compiler)]}}}"
                 for compiler in compiler_types
             ]
         )
@@ -127,6 +128,26 @@ def generate_grouped_latex_table(df):
     return latex_code
 
 
+def wrap_latex_document(table_code):
+    return (
+        r"""\documentclass{article}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{hyperref}
+\geometry{margin=1in}
+\newcommand{\name}{CLASS} 
+\begin{document}
+"""
+        + table_code
+        + "\n\\end{document}\n"
+    )
+
+
 # Specify the path to your CSV file
 if len(sys.argv) != 2:
     print(f"Usage: python {sys.argv[0]} <path-to-res>")
@@ -138,7 +159,17 @@ file_path = sys.argv[1]
 df = read_csv_from_file(file_path)
 
 # Generate the LaTeX code
-latex_code = generate_grouped_latex_table(df)
+latex_table_code = generate_grouped_latex_table(df)
 
-# Print the LaTeX code
-print(latex_code)
+# Wrap in a full LaTeX document
+latex_full_doc = wrap_latex_document(latex_table_code)
+
+# Write to a .tex file in exp/paper/ directory
+output_dir = "exp/data/paper"
+os.makedirs(output_dir, exist_ok=True)
+output_path = os.path.join(output_dir, "main_res_table.tex")
+with open(output_path, "w", encoding="utf-8") as f:
+    f.write(latex_full_doc)
+
+# Also print the LaTeX code to stdout
+print(latex_full_doc)

@@ -1,13 +1,13 @@
-# CLASS: A Controller-Centric Layout Synthesizer for Dynamic Quantum Circuits
+# 📖 CLASS: A Controller-Centric Layout Synthesizer for Dynamic Quantum Circuits
 
 This repository contains the source code and scripts to reproduce the results presented in the paper: "CLASS: A Controller-Centric Layout Synthesizer for Dynamic Quantum Circuits".
 
-## Build and Installation
+## 🧰 Build and Installation
 
 To set up the environment and build the project, follow the steps below:
 
 1. Install Rust: Follow the official guide (<https://www.rust-lang.org/learn/get-started>) to install Rust.
-2. Create a Python Virtual Environment: You can use `venv`, Anaconda, or Miniconda to create a new environment. Example using conda:
+2. Create a Python Virtual Environment: You can use `venv`, Anaconda, Miniconda, or [uv](https://docs.astral.sh/uv/) to create a new environment. Example using conda:
    - `conda create -y -n class python=3.11.9`
    - `conda activate class`
 3. Install the Project: Run the following command to install the project in editable mode:
@@ -17,34 +17,36 @@ git clone --recurse-submodules --depth 1 https://github.com/Zhaoyilunnn/class.gi
 cd class
 
 # with pip
-pip install -e .
+pip install -e '.[dev]'
 
 # or with uv
-uv sync
+uv sync --all-extras
 ```
 
-## Running Tests
+## ✔️  Running Tests
 
 To verify that everything is set up correctly, you can run the tests for both Python and Rust components:
 
 - Python Tests: Run the following command to execute the Python test suite:
-  - `pip install pytest`
   - `pytest tests/`
 - Rust Tests: Run the following command to execute the Rust tests:
-  - If you use conda, it may be necessary to first explicitly set the environment variable `export LD_LIBRARY_PATH=<path-to-your-conda-installation>/envs/class/lib/`
+  - If you are in an virtual environment, it may be necessary to first explicitly set the environment variable, e.g., `export LD_LIBRARY_PATH=<path-to-your-conda-installation>/envs/class/lib/`
   - `cargo test --no-default-features`
   - For more information on testing Rust components, see this guide (<https://github.com/Qiskit/qiskit/blob/1.1.1/CONTRIBUTING.md#testing-rust-components>).
 
-## Reproducing Results
+## 👌 Reproducing Results
 
 To reproduce the results from the paper, use the following commands (assuming a Unix environment):
+
+If you meet any issues, please open an issue on GitHub or contact <zyilun8@gmail.com>.
 
 ### Table I
 
 - `python exp/bench.py --comp baseline,multi_ctrl --ctrl 4 --parallel 1 --opt 6 --t 0.2 --rt dqcswap --bench exp/benchmarks.lst --wr 1 --wr-path exp/data/paper`
 
 - Generate LaTeX table code:
-  - `python exp/gen_main_res_table.py exp/data/paper/benchmarks.lst_baseline_multi_ctrl_dqcswap_dqcmap_opt_6_ctrl_4.csv`
+  - `python exp/gen_main_res_table.py exp/data/paper/benchmarks.lst_baseline_multi_ctrl_dqcswap_dqcmap_opt_6_ctrl_4.csv` generates `exp/data/paper/main_res_table.tex`
+  - `pdflatex exp/data/paper/main_res_table.tex` renders the table as a PDF.
 
 ### Impact of Controller Count (Figure 6)
 
@@ -58,7 +60,7 @@ To reproduce the results from the paper, use the following commands (assuming a 
 
 - `python exp/plot_runtime_analysis.py exp/data/paper/runtime_analysis_same_ctrl.txt`
 
-## Usage
+## ✏️  Usage
 
 We provide a script (`exp/bench.py`) to evaluate the performance of our approach across various benchmarks. Below is a description of the script's options:
 

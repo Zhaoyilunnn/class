@@ -1,0 +1,42 @@
+\documentclass{article}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{hyperref}
+\geometry{margin=1in}
+\newcommand{\name}{CLASS} 
+\begin{document}
+\begin{table*}[ht]
+    \centering
+    \caption{Comparison between \name{} and baseline.}
+    \begin{tabular}{llcccccc}
+        \toprule
+        \textbf{Benchmark} & \textbf{Qubits} & \multicolumn{3}{c}{Baseline} & \multicolumn{3}{c}{\name{}} \\
+        \cmidrule(lr){3-5} \cmidrule(lr){6-8}
+        & & \# Operations & Depth & \# ICCS & \# Operations & Depth & \# ICCS \\
+        \midrule
+        qft & 20 & 270 & 99 & 144 & 270 & 99 & 0 \\
+        qft & 30 & 555 & 149 & 335 & 555 & 149 & 0 \\
+        qft & 40 & 940 & 199 & 599 & 940 & 199 & 256 \\
+        qft & 50 & 1425 & 249 & 933 & 1425 & 249 & 576 \\ \midrule
+        cc & 12 & 159 & 109 & 24 & 153 & 110 & 6 \\
+        cc & 32 & 487 & 315 & 120 & 586 & 346 & 6 \\
+        pe & 20 & 441 & 171 & 125 & 434 & 184 & 19 \\
+        pe & 30 & 798 & 268 & 309 & 870 & 277 & 29 \\
+        pe & 40 & 1356 & 400 & 591 & 1444 & 430 & 309 \\
+        pe & 50 & 1938 & 505 & 911 & 2101 & 505 & 619 \\
+        random & 20 & 2096 & 726 & 339 & 2095 & 785 & 39 \\
+        random & 30 & 5551 & 1589 & 882 & 5738 & 1852 & 111 \\
+        random & 40 & 11480 & 2810 & 1500 & 11413 & 3016 & 912 \\
+        random & 50 & 19743 & 4710 & 2691 & 20140 & 4621 & 1812 \\
+        \midrule
+        \textbf{Average} & - & 4404.90 & 1160.30 & 749.20 & 4497.40 & 1212.60 & 386.20 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:main_res}
+\end{table*}
+\end{document}
