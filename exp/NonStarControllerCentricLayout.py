@@ -2,7 +2,6 @@ from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import networkx as nx
-import numpy as np
 
 
 class NonStarCLASS:
@@ -275,11 +274,11 @@ class NonStarCLASS:
                 if critical_path:
                     q_m, c_m, q_t, c_t, cost = critical_path
                     print(
-                        f"CIDQ Set {i+1}: Critical path from q{q_m}(C{c_m}) to q{q_t}(C{c_t}) with cost {cost}"
+                        f"CIDQ Set {i + 1}: Critical path from q{q_m}(C{c_m}) to q{q_t}(C{c_t}) with cost {cost}"
                     )
                 else:
                     print(
-                        f"CIDQ Set {i+1}: No communication needed (all qubits on same controller or not mapped)"
+                        f"CIDQ Set {i + 1}: No communication needed (all qubits on same controller or not mapped)"
                     )
 
         return total_cost
@@ -367,7 +366,7 @@ def run_example():
     # Print the CIDQ sets to verify
     print("CIDQ Sets for 12-qubit dynamic QFT:")
     for i, cidq_set in enumerate(cidq_sets):
-        print(f"D_{i+1} = {cidq_set}")
+        print(f"D_{i + 1} = {cidq_set}")
 
     # Controller capacities
     capacities = {1: 3, 2: 3, 3: 3, 4: 3, 5: 3}
@@ -394,7 +393,7 @@ def run_example():
             target_controllers = {M_C[M_Q[q]] for q in target_qubits if q in M_Q}
 
             print(
-                f"D_{i+1}: Measured q{measured_qubit} on controller {measured_controller}, "
+                f"D_{i + 1}: Measured q{measured_qubit} on controller {measured_controller}, "
                 f"targets on controllers {target_controllers}"
             )
 
@@ -423,7 +422,7 @@ def run_example():
                     "  No critical path (all targets on same controller as measured qubit)"
                 )
         else:
-            print(f"D_{i+1}: Measured qubit q{measured_qubit} not mapped")
+            print(f"D_{i + 1}: Measured qubit q{measured_qubit} not mapped")
 
     # Visualize the solution
     optimizer.visualize_solution()

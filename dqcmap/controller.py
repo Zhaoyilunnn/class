@@ -3,7 +3,6 @@ from enum import Enum
 from typing import List, Optional
 
 import numpy as np
-import rustworkx
 
 from dqcmap.utils.cm import CmHelper
 
@@ -42,7 +41,7 @@ class ControllerConfig:
         self._strategy = strategy
         if self._dt_inter < 5 * self._dt_inner:
             logger.warning(
-                f"Latency within the same controller is expected to be at least 5x shorter than the latency across different controllers"
+                "Latency within the same controller is expected to be at least 5x shorter than the latency across different controllers"
             )
         assert (
             num_qubits > 0 and num_controllers > 0 and num_qubits >= 2 * num_controllers

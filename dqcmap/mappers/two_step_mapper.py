@@ -1,10 +1,8 @@
-import random
 from typing import List
 
 from dqcmap.basemapper import BaseMapper
 from dqcmap.circuit_prop import CircProperty
 from dqcmap.controller import ControllerConfig
-from dqcmap.mappers.heuristic_graphpartition_mapper import HeuristicMapper
 from dqcmap.mappers.intra_controller_optimizer import RandomIntraControllerMapper
 from dqcmap.mappers.iter_KL_mapper import KLMapper
 

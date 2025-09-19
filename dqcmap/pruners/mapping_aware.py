@@ -45,12 +45,12 @@ class MappingAwarePruner(BasePruner):
 
         if mapping is None or multi_op_list is None:
             raise ValueError(
-                f"`mapping` and `multi_op_list` must be set when using MappingAwarePruner"
+                "`mapping` and `multi_op_list` must be set when using MappingAwarePruner"
             )
 
         if not (prob >= 0 and prob < 0.5):
             raise ValueError(
-                f"Pruning probability should be in [0, 0.5) when using MappingAwarePruner"
+                "Pruning probability should be in [0, 0.5) when using MappingAwarePruner"
             )
         self._prob = prob
         self._base_seed = seed

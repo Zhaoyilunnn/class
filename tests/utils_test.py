@@ -4,9 +4,7 @@ import os
 
 import rustworkx as rx
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
-from qiskit.circuit.random.utils import random_circuit
 from qiskit.providers.fake_provider import Fake27QPulseV1, Fake127QPulseV1
-from qiskit.providers.models import BackendProperties
 
 from dqcmap.utils import get_cif_qubit_pairs
 from dqcmap.utils.cm import CmHelper

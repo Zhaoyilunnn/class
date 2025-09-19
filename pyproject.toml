@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "pre-commit"]
 
 [tool.setuptools.packages.find]
 # Pure Python packages/modules
@@ -37,3 +37,7 @@ target = "dqcmap._accelerate" # The last part of the name (e.g. "_lib") has to m
 path = "rust/pyext/Cargo.toml" # Default value, can be omitted
 binding = "PyO3"               # Default value, can be omitted
 debug = false                  # force release build
+
+
+[tool.ruff.lint]
+ignore = ["F401", "E402"]

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Union
+from typing import List, Union
 
 from qiskit import QuantumCircuit
 from qiskit.providers import Backend

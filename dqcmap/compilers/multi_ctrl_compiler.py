@@ -1,5 +1,4 @@
-from qiskit import QuantumCircuit, transpile
-from qiskit.circuit.instruction import math
+from qiskit import QuantumCircuit
 from qiskit.providers import Backend, BackendV1, BackendV2
 
 from dqcmap.basecompiler import BaseCompiler, _CircuitsT

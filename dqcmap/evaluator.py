@@ -228,7 +228,7 @@ class EvalV2(Eval):
         res = 0.0
         for val in qc.data:
             if isinstance(val, CircuitInstruction):
-                operation, qargs, cargs = val.operation, val.qubits, val.clbits
+                operation, qargs, _ = val.operation, val.qubits, val.clbits
                 if operation.name != "measure":
                     if len(qargs) == 2:
                         res += 4e-8

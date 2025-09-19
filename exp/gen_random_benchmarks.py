@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from qiskit import qasm2, qasm3
+from qiskit import qasm3
 
 from dqcmap.utils import get_synthetic_dqc
 

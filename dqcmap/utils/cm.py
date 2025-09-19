@@ -58,7 +58,7 @@ class CmHelper:
         """
         Generate a randomized connected region of coupling map
         """
-        cm = CouplingMap(couplinglist=coupling_map)
+        _ = CouplingMap(couplinglist=coupling_map)
         # cm.connected_components()
         # graphviz_draw(cm.graph, image_type="svg", filename="test.svg")
         return list(range(qc.num_qubits))
@@ -91,7 +91,7 @@ class CmHelper:
 
         if not rx.is_connected(g):
             raise ValueError(
-                f"`gen_trivial_connected_regions` can only be used for connected coupling_map"
+                "`gen_trivial_connected_regions` can only be used for connected coupling_map"
             )
 
         if save_fig:

@@ -8,12 +8,10 @@ from time import sleep
 import numpy as np
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit.random.utils import random_circuit
-from qiskit.providers.fake_provider import Fake127QPulseV1
 from qiskit.result.mitigation.utils import counts_to_vector
 from qiskit_aer import Aer
 from qiskit_ibm_runtime import QiskitRuntimeService
 from qiskit_ibm_runtime import SamplerV2 as Sampler
-from qiskit_ibm_runtime.constants import JobStatus
 from qiskit_ibm_runtime.fake_provider import FakeOsaka
 
 SERVICE = QiskitRuntimeService()
@@ -59,10 +57,10 @@ def fidelity(p_0: np.ndarray, p_1: np.ndarray):
     and fidelity = 1 - TVD
     """
     if not np.isclose(np.sum(p_0), 1.0) or not np.isclose(np.sum(p_1), 1.0):
-        raise ValueError(f"The input should be valid probability distributions (sum=1)")
+        raise ValueError("The input should be valid probability distributions (sum=1)")
 
     if len(p_0) != len(p_1):
-        raise ValueError(f"The two distributions should have equal length")
+        raise ValueError("The two distributions should have equal length")
 
     tvd = 0.5 * np.sum(np.abs(p_0 - p_1))
     return 1 - tvd
@@ -193,7 +191,7 @@ def main():
 
     if ARGS.scan:
         for so in range(1, 11):
-            print(f"CNOT overhead={so}\tICC reduction={5*so}")
+            print(f"CNOT overhead={so}\tICC reduction={5 * so}")
             qc_A = to_A(qc, so)
             qc_B = to_B(qc, 5 * so)
 

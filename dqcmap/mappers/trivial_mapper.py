@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 class TrivialMapper(BaseMapper):
     def run(self) -> List[int]:
-        res = []
         ctrl_to_pq = self._ctrl_conf.ctrl_to_pq
         cif_pairs = self._circ_prop.cif_pairs
         cif_pairs = [tuple(p) for p in cif_pairs]
