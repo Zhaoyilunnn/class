@@ -1,8 +1,8 @@
-# 📖 CLASS: A Controller-Centric Layout Synthesizer for Dynamic Quantum Circuits
+# CLASS: A Controller-Centric Layout Synthesizer for Dynamic Quantum Circuits
 
 This repository contains the source code and scripts to reproduce the results presented in the paper: "CLASS: A Controller-Centric Layout Synthesizer for Dynamic Quantum Circuits".
 
-## 🧰 Build and Installation
+## Build and Installation
 
 To set up the environment and build the project, follow the steps below:
 
@@ -23,7 +23,7 @@ pip install -e ".[dev]"
 uv sync --all-extras
 ```
 
-## ✔️  Running Tests
+## Running Tests
 
 To verify that everything is set up correctly, you can run the tests for both Python and Rust components:
 
@@ -36,7 +36,7 @@ To verify that everything is set up correctly, you can run the tests for both Py
   - `cargo test --no-default-features`
   - For more information on testing Rust components, see this guide (<https://github.com/Qiskit/qiskit/blob/1.1.1/CONTRIBUTING.md#testing-rust-components>).
 
-## 👌 Reproducing Results
+## Reproducing Results
 
 To reproduce the results from the paper, use the following commands (assuming a Unix environment):
 
@@ -78,7 +78,7 @@ python exp/bench.py --n 20,40,60,80,100 --p 0.9 --comp multi_ctrl --bench qft --
 python exp/plot_runtime_analysis.py exp/data/paper/runtime_analysis_same_ctrl.txt
 ```
 
-## ✏️  Usage
+## Usage
 
 We provide a script (`exp/bench.py`) to evaluate the performance of our approach across various benchmarks. Below is a description of the script's options:
 
@@ -110,7 +110,7 @@ For more details, run:
 
 - `python exp/bench.py -h`
 
-## 🧡 Contributing
+## Contributing
 
 To ensure your contributions meet project standards, please set up pre-commit hooks:
 
